@@ -1,0 +1,38 @@
+[
+  {
+    "_id": "m8y54vdpjtpj9",
+    "firstName": "jean",
+    "lastName": "marc",
+    "email": "jean@yahoo.fr",
+    "password": "$2b$10$cBkWoX69kuRWe6iVUVyPruPargkp0me818F5hfu5OOLnDnnb07MMq",
+    "dateOfBirth": "1963-11-22",
+    "gender": "male",
+    "friends": [],
+    "friendRequests": {
+      "sent": [],
+      "received": []
+    },
+    "isOnline": false,
+    "lastActive": "2025-04-01T07:15:16.862Z",
+    "createdAt": "2025-04-01T06:52:24.157Z",
+    "updatedAt": "2025-04-01T07:15:16.862Z"
+  },
+  {
+    "_id": "m8y5zanjd0bag",
+    "firstName": "mica",
+    "lastName": "jean",
+    "email": "jean.mika@yahoo.fr",
+    "password": "$2b$10$I1hlj0TcIuL0QtRLYe4rpuOAINq0vtIBUEYgjqd1.vLHjH0lv1pi6",
+    "dateOfBirth": "1978-05-25",
+    "gender": "male",
+    "friends": [],
+    "friendRequests": {
+      "sent": [],
+      "received": []
+    },
+    "isOnline": true,
+    "lastActive": "2025-04-01T07:16:03.631Z",
+    "createdAt": "2025-04-01T07:16:03.631Z",
+    "updatedAt": "2025-04-01T07:16:03.631Z"
+  }
+]

@@ -1,0 +1,28 @@
+[
+  {
+    "_id": "m8y55vw59c4hn",
+    "user": "m8y54vdpjtpj9",
+    "content": "Bonjour",
+    "isPrivate": true,
+    "images": [
+      "/uploads/1743490391461-356239459.png"
+    ],
+    "likes": [],
+    "comments": [],
+    "createdAt": "2025-04-01T06:53:11.477Z",
+    "updatedAt": "2025-04-01T06:53:11.477Z"
+  },
+  {
+    "_id": "m8y57wurbvhhs",
+    "user": "m8y54vdpjtpj9",
+    "content": "c'est test",
+    "isPrivate": false,
+    "images": [
+      "/uploads/1743490486032-533334323.png"
+    ],
+    "likes": [],
+    "comments": [],
+    "createdAt": "2025-04-01T06:54:46.035Z",
+    "updatedAt": "2025-04-01T06:54:46.035Z"
+  }
+]
