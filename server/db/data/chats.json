@@ -10,7 +10,7 @@
         "_id": "m94k7zu7nkdpx",
         "sender": "m8y54vdpjtpj9",
         "content": "slt",
-        "read": false,
+        "read": true,
         "createdAt": "2025-04-05T18:41:21.199Z",
         "updatedAt": "2025-04-05T18:41:21.199Z"
       },
@@ -18,7 +18,7 @@
         "_id": "m94k89q5qdtkv",
         "sender": "m8y5zanjd0bag",
         "content": "ca va",
-        "read": false,
+        "read": true,
         "createdAt": "2025-04-05T18:41:34.013Z",
         "updatedAt": "2025-04-05T18:41:34.013Z"
       },
@@ -26,7 +26,7 @@
         "_id": "m94k8jhxp4xbw",
         "sender": "m8y5zanjd0bag",
         "content": "quoi de neuf",
-        "read": false,
+        "read": true,
         "createdAt": "2025-04-05T18:41:46.677Z",
         "updatedAt": "2025-04-05T18:41:46.677Z"
       },
@@ -34,7 +34,7 @@
         "_id": "m954b2waned05",
         "sender": "m8y54vdpjtpj9",
         "content": "cc",
-        "read": false,
+        "read": true,
         "createdAt": "2025-04-06T04:03:37.450Z",
         "updatedAt": "2025-04-06T04:03:37.450Z"
       },
@@ -42,12 +42,322 @@
         "_id": "m954c1bm1owmj",
         "sender": "m8y5zanjd0bag",
         "content": "ça va",
-        "read": false,
+        "read": true,
         "createdAt": "2025-04-06T04:04:22.066Z",
         "updatedAt": "2025-04-06T04:04:22.066Z"
+      },
+      {
+        "_id": "m958bq6q9jml4",
+        "sender": "m8y54vdpjtpj9",
+        "content": "slt",
+        "read": true,
+        "createdAt": "2025-04-06T05:56:06.098Z",
+        "updatedAt": "2025-04-06T05:56:06.098Z"
+      },
+      {
+        "_id": "m958c0x98y4ck",
+        "sender": "m8y54vdpjtpj9",
+        "content": "cc",
+        "read": true,
+        "createdAt": "2025-04-06T05:56:20.013Z",
+        "updatedAt": "2025-04-06T05:56:20.013Z"
+      },
+      {
+        "_id": "m95w8fyhtq40i",
+        "sender": "m8y54vdpjtpj9",
+        "content": "marc",
+        "read": true,
+        "createdAt": "2025-04-06T17:05:23.657Z",
+        "updatedAt": "2025-04-06T17:05:23.657Z"
+      },
+      {
+        "_id": "m95w96a2dhpxi",
+        "sender": "m8y54vdpjtpj9",
+        "content": "bonsoir",
+        "read": true,
+        "createdAt": "2025-04-06T17:05:57.770Z",
+        "updatedAt": "2025-04-06T17:05:57.770Z"
+      },
+      {
+        "_id": "m95w9kt1uyqd6",
+        "sender": "m8y5zanjd0bag",
+        "content": "bonsoir",
+        "read": true,
+        "createdAt": "2025-04-06T17:06:16.597Z",
+        "updatedAt": "2025-04-06T17:06:16.597Z"
+      },
+      {
+        "_id": "m95wgbjxb2bym",
+        "sender": "m8y5zanjd0bag",
+        "content": "cc",
+        "read": true,
+        "createdAt": "2025-04-06T17:11:31.197Z",
+        "updatedAt": "2025-04-06T17:11:31.197Z"
+      },
+      {
+        "_id": "m95wmnapnmthc",
+        "sender": "m8y5zanjd0bag",
+        "content": "slt",
+        "read": true,
+        "createdAt": "2025-04-06T17:16:26.353Z",
+        "updatedAt": "2025-04-06T17:16:26.353Z"
+      },
+      {
+        "_id": "m95wmwn5hl0lf",
+        "sender": "m8y54vdpjtpj9",
+        "content": "ca va toi jean",
+        "read": true,
+        "createdAt": "2025-04-06T17:16:38.465Z",
+        "updatedAt": "2025-04-06T17:16:38.465Z"
+      },
+      {
+        "_id": "m95wn7gtvnmya",
+        "sender": "m8y54vdpjtpj9",
+        "content": "moi si",
+        "read": true,
+        "createdAt": "2025-04-06T17:16:52.493Z",
+        "updatedAt": "2025-04-06T17:16:52.493Z"
+      },
+      {
+        "_id": "m95wsve7wmw09",
+        "sender": "m8y54vdpjtpj9",
+        "content": "test avec marc",
+        "read": true,
+        "createdAt": "2025-04-06T17:21:16.783Z",
+        "updatedAt": "2025-04-06T17:21:16.783Z"
+      },
+      {
+        "_id": "m95wulyx72t53",
+        "sender": "m8y54vdpjtpj9",
+        "content": "slt marc",
+        "read": true,
+        "createdAt": "2025-04-06T17:22:37.881Z",
+        "updatedAt": "2025-04-06T17:22:37.881Z"
+      },
+      {
+        "_id": "m95wve3n5vcmx",
+        "sender": "m8y54vdpjtpj9",
+        "content": "test avec marc",
+        "read": true,
+        "createdAt": "2025-04-06T17:23:14.339Z",
+        "updatedAt": "2025-04-06T17:23:14.339Z"
+      },
+      {
+        "_id": "m95x0w3otkow8",
+        "sender": "m8y54vdpjtpj9",
+        "content": "je suis la",
+        "read": true,
+        "createdAt": "2025-04-06T17:27:30.948Z",
+        "updatedAt": "2025-04-06T17:27:30.948Z"
+      },
+      {
+        "_id": "m95x12wvijxwn",
+        "sender": "m8y5zanjd0bag",
+        "content": "moi aussi",
+        "read": true,
+        "createdAt": "2025-04-06T17:27:39.775Z",
+        "updatedAt": "2025-04-06T17:27:39.775Z"
+      },
+      {
+        "_id": "m95x19g9x4kmr",
+        "sender": "m8y5zanjd0bag",
+        "content": "tu es sure?",
+        "read": true,
+        "createdAt": "2025-04-06T17:27:48.249Z",
+        "updatedAt": "2025-04-06T17:27:48.249Z"
+      },
+      {
+        "_id": "m95x1e6g0lkje",
+        "sender": "m8y54vdpjtpj9",
+        "content": "biensure",
+        "read": true,
+        "createdAt": "2025-04-06T17:27:54.376Z",
+        "updatedAt": "2025-04-06T17:27:54.376Z"
+      },
+      {
+        "_id": "m95x82a5kfa3l",
+        "sender": "m8y54vdpjtpj9",
+        "content": "c'est que tu es toujours la",
+        "read": true,
+        "createdAt": "2025-04-06T17:33:05.549Z",
+        "updatedAt": "2025-04-06T17:33:05.549Z"
+      },
+      {
+        "_id": "m95x89eqfyp6i",
+        "sender": "m8y5zanjd0bag",
+        "content": "biensure",
+        "read": true,
+        "createdAt": "2025-04-06T17:33:14.786Z",
+        "updatedAt": "2025-04-06T17:33:14.786Z"
+      },
+      {
+        "_id": "m95x8h8qwjx1m",
+        "sender": "m8y54vdpjtpj9",
+        "content": "tu es gentille",
+        "read": true,
+        "createdAt": "2025-04-06T17:33:24.938Z",
+        "updatedAt": "2025-04-06T17:33:24.938Z"
+      },
+      {
+        "_id": "m95x8qhwyjz0m",
+        "sender": "m8y5zanjd0bag",
+        "content": "comme toi",
+        "read": true,
+        "createdAt": "2025-04-06T17:33:36.932Z",
+        "updatedAt": "2025-04-06T17:33:36.932Z"
+      },
+      {
+        "_id": "m95y3ovkkzz8j",
+        "sender": "m8y5zanjd0bag",
+        "content": "oui merci",
+        "read": true,
+        "createdAt": "2025-04-06T17:57:41.168Z",
+        "updatedAt": "2025-04-06T17:57:41.168Z"
+      },
+      {
+        "_id": "m95y4w4l3fybv",
+        "sender": "m8y54vdpjtpj9",
+        "content": "c'est bien",
+        "read": true,
+        "createdAt": "2025-04-06T17:58:37.221Z",
+        "updatedAt": "2025-04-06T17:58:37.221Z"
+      },
+      {
+        "_id": "m95y51gbfqvre",
+        "sender": "m8y5zanjd0bag",
+        "content": "ok",
+        "read": true,
+        "createdAt": "2025-04-06T17:58:44.123Z",
+        "updatedAt": "2025-04-06T17:58:44.123Z"
       }
     ],
     "createdAt": "2025-04-04T05:54:35.161Z",
-    "updatedAt": "2025-04-06T04:04:22.066Z"
+    "updatedAt": "2025-04-06T17:58:44.755Z"
+  },
+  {
+    "_id": "m958g6xe7wwui",
+    "participants": [
+      "m92ffeyiy8nx8",
+      "m8y5zanjd0bag"
+    ],
+    "messages": [
+      {
+        "_id": "m958gdv954a37",
+        "sender": "m92ffeyiy8nx8",
+        "content": "cc",
+        "read": true,
+        "createdAt": "2025-04-06T05:59:43.413Z",
+        "updatedAt": "2025-04-06T05:59:43.413Z"
+      },
+      {
+        "_id": "m958gq23vle9d",
+        "sender": "m92ffeyiy8nx8",
+        "content": "ca va",
+        "read": true,
+        "createdAt": "2025-04-06T05:59:59.211Z",
+        "updatedAt": "2025-04-06T05:59:59.211Z"
+      },
+      {
+        "_id": "m958h1ad0dmnh",
+        "sender": "m8y5zanjd0bag",
+        "content": "Bonjour",
+        "read": true,
+        "createdAt": "2025-04-06T06:00:13.765Z",
+        "updatedAt": "2025-04-06T06:00:13.765Z"
+      },
+      {
+        "_id": "m958j52cr2yqy",
+        "sender": "m92ffeyiy8nx8",
+        "content": "cc",
+        "read": true,
+        "createdAt": "2025-04-06T06:01:51.972Z",
+        "updatedAt": "2025-04-06T06:01:51.972Z"
+      },
+      {
+        "_id": "m958jtjwabh2w",
+        "sender": "m8y5zanjd0bag",
+        "content": "cc jean",
+        "read": true,
+        "createdAt": "2025-04-06T06:02:23.708Z",
+        "updatedAt": "2025-04-06T06:02:23.708Z"
+      },
+      {
+        "_id": "m958lqgeftiab",
+        "sender": "m8y5zanjd0bag",
+        "content": "Bonjour beau",
+        "read": true,
+        "createdAt": "2025-04-06T06:03:53.006Z",
+        "updatedAt": "2025-04-06T06:03:53.006Z"
+      },
+      {
+        "_id": "m95ilvjy3k2vz",
+        "sender": "m92ffeyiy8nx8",
+        "content": "cc",
+        "read": true,
+        "createdAt": "2025-04-06T10:43:55.774Z",
+        "updatedAt": "2025-04-06T10:43:55.774Z"
+      },
+      {
+        "_id": "m95imiwysr0vz",
+        "sender": "m8y5zanjd0bag",
+        "content": "Bonjour!",
+        "read": true,
+        "createdAt": "2025-04-06T10:44:26.050Z",
+        "updatedAt": "2025-04-06T10:44:26.050Z"
+      },
+      {
+        "_id": "m95jgihnrad9r",
+        "sender": "m8y5zanjd0bag",
+        "content": "slt",
+        "read": true,
+        "createdAt": "2025-04-06T11:07:45.179Z",
+        "updatedAt": "2025-04-06T11:07:45.179Z"
+      },
+      {
+        "_id": "m95jh103no10i",
+        "sender": "m92ffeyiy8nx8",
+        "content": "slt jean",
+        "read": true,
+        "createdAt": "2025-04-06T11:08:09.171Z",
+        "updatedAt": "2025-04-06T11:08:09.171Z"
+      },
+      {
+        "_id": "m95jhmaduxdh6",
+        "sender": "m8y5zanjd0bag",
+        "content": "slt beau",
+        "read": true,
+        "createdAt": "2025-04-06T11:08:36.757Z",
+        "updatedAt": "2025-04-06T11:08:36.757Z"
+      },
+      {
+        "_id": "m95ji7kynionl",
+        "sender": "m92ffeyiy8nx8",
+        "content": "ca va jean",
+        "read": true,
+        "createdAt": "2025-04-06T11:09:04.354Z",
+        "updatedAt": "2025-04-06T11:09:04.354Z"
+      }
+    ],
+    "createdAt": "2025-04-06T05:59:34.418Z",
+    "updatedAt": "2025-04-06T17:12:10.124Z"
+  },
+  {
+    "_id": "m95wflf83xem9",
+    "participants": [
+      "m8y54vdpjtpj9",
+      "m92ffeyiy8nx8"
+    ],
+    "messages": [
+      {
+        "_id": "m95wfq93idvha",
+        "sender": "m8y54vdpjtpj9",
+        "content": "slt",
+        "read": false,
+        "createdAt": "2025-04-06T17:11:03.591Z",
+        "updatedAt": "2025-04-06T17:11:03.591Z"
+      }
+    ],
+    "createdAt": "2025-04-06T17:10:57.332Z",
+    "updatedAt": "2025-04-06T17:11:03.591Z"
   }
 ]

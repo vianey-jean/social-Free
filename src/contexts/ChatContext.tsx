@@ -1,6 +1,13 @@
 
 import React, { createContext, useContext, useState } from "react";
-import { ChatContainer, Chat } from "@/components/ChatContainer";
+import ChatWindow from "@/components/ChatWindow";
+
+export interface Chat {
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  minimized: boolean;
+}
 
 interface ChatContextType {
   openChat: (userId: string, userName: string, userAvatar?: string) => void;
@@ -33,6 +40,8 @@ const ChatContainerWithRef = React.forwardRef<any>((props, ref) => {
   
   React.useImperativeHandle(ref, () => ({
     openChat: (userId: string, userName: string, userAvatar?: string) => {
+      if (!userId) return;
+      
       // Check if chat is already open
       const existingChatIndex = activeChats.findIndex(chat => chat.userId === userId);
       
@@ -101,9 +110,6 @@ const ChatContainerWithRef = React.forwardRef<any>((props, ref) => {
     </div>
   );
 });
-
-// Import the actual ChatWindow component here
-import ChatWindow from "@/components/ChatWindow";
 
 export const useChat = (): ChatContextType => {
   const context = useContext(ChatContext);

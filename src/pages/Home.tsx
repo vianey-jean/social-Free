@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import OnlineUsersList from "@/components/OnlineUsersList";
-import PostFeed from "@/components/PostFeed";
+import PostFeedLister from "@/components/PostFeedLister";
 import CreatePostForm from "@/components/CreatePostForm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -44,10 +44,10 @@ const Home = () => {
         <OnlineUsersList />
         
         <div className="flex-1 p-6">
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-4xl mx-auto">
             <CreatePostForm onPostCreated={handlePostCreated} />
             
-            <div className="my-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="my-6  grid-cols-1 md:grid-cols-2 gap-4">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg flex items-center">
@@ -58,11 +58,10 @@ const Home = () => {
                   <p className="text-sm text-gray-600 mb-4">
                     Voir les dernières publications
                   </p>
-                  <PostFeed 
+                  <PostFeedLister 
                     refreshTrigger={refreshTrigger} 
-                    feedType="all" 
+                    feedType="recent" 
                     limit={3}
-                    simplified={true} 
                   />
                 </CardContent>
               </Card>
@@ -77,11 +76,10 @@ const Home = () => {
                   <p className="text-sm text-gray-600 mb-4">
                     Publications avec le plus de commentaires
                   </p>
-                  <PostFeed 
+                  <PostFeedLister 
                     refreshTrigger={refreshTrigger} 
                     feedType="popular" 
                     limit={3}
-                    simplified={true} 
                   />
                 </CardContent>
               </Card>
@@ -96,17 +94,17 @@ const Home = () => {
               
               <TabsContent value="all">
                 <h2 className="text-xl font-semibold mb-4">Publications récentes</h2>
-                <PostFeed refreshTrigger={refreshTrigger} feedType="all" />
+                <PostFeedLister refreshTrigger={refreshTrigger} feedType="all" />
               </TabsContent>
               
               <TabsContent value="friends">
                 <h2 className="text-xl font-semibold mb-4">Publications des amis</h2>
-                <PostFeed refreshTrigger={refreshTrigger} feedType="friends" />
+                <PostFeedLister refreshTrigger={refreshTrigger} feedType="friends" />
               </TabsContent>
               
               <TabsContent value="my">
                 <h2 className="text-xl font-semibold mb-4">Mes publications</h2>
-                <PostFeed refreshTrigger={refreshTrigger} userId={user?.id} />
+                <PostFeedLister refreshTrigger={refreshTrigger} userId={user?.id} />
               </TabsContent>
             </Tabs>
           </div>

@@ -1,10 +1,2709 @@
-src/App.tsx
-src/main.tsx
-src/AppExtended.tsx
-src/components/ChatWindow.tsx
-src/components/Navbar.tsx
+
+src/pages/ChatPage.tsx
+src/services/realTimeChatService.ts
+src/utils/imageUtils.ts
+
+enlever pusher-js et socket.io
+
+
+
+
+
+// ChatWindow.tsx
 src/components/PostFeedLister.tsx
-src/pages/EditProfile.tsx
 src/pages/Home.tsx
 src/pages/Profile.tsx
-src/contexts/AuthContext.tsx
+src/pages/Chat.tsx
+src/components/onlineUsersList.tsx
+
+enleve le socket.io et simple-peer 
+
+
+utilise ce code pour chatwindow: import React, { useState, useEffect, useRef } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { X, Minus, Paperclip, Send, Phone, Video } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
+
+export interface ChatWindowExtendedProps {
+  userId: string;
+  userName?: string;
+  userAvatar?: string;
+  onClose: () => void;
+  onMinimize: () => void;
+}
+
+const API_URL = window.location.hostname === "localhost"
+  ? "http://localhost:3001/api"
+  : "https://liberte-backend.herokuapp.com/api";
+
+const ChatWindow: React.FC<ChatWindowExtendedProps> = ({
+  userId,
+  userName = "Utilisateur",
+  userAvatar,
+  onClose,
+  onMinimize
+}) => {
+  const [messages, setMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isOnline, setIsOnline] = useState(false);
+  const [contactInfo, setContactInfo] = useState<any>({ firstName: "", lastName: "" });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Récupération des infos utilisateur
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/users/${userId}`, { withCredentials: true });
+        if (res.data?.user) {
+          setIsOnline(res.data.user.isOnline || false);
+          setContactInfo({
+            firstName: res.data.user.firstName || "",
+            lastName: res.data.user.lastName || ""
+          });
+        }
+      } catch (err) {
+        console.error("Erreur utilisateur :", err);
+      }
+    };
+    if (userId) fetchUserInfo();
+  }, [userId]);
+
+  // Chargement des messages et polling
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchMessages = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/chat/user/${userId}`, { withCredentials: true });
+        if (res.data?.messages && isMounted) {
+          setMessages((prev) => {
+            const newMessages = res.data.messages;
+            if (JSON.stringify(prev) !== JSON.stringify(newMessages)) {
+              return newMessages;
+            }
+            return prev;
+          });
+
+          if (res.data._id) {
+            await axios.patch(`${API_URL}/chat/${res.data._id}/read`, {}, { withCredentials: true });
+          }
+        }
+      } catch (err) {
+        console.error("Erreur de polling :", err);
+      }
+    };
+
+    if (user && userId) {
+      fetchMessages();
+      pollingRef.current = setInterval(fetchMessages, 3000);
+    }
+
+    return () => {
+      isMounted = false;
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [userId, user]);
+
+  // Scroll auto vers le bas (observer)
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const observer = new MutationObserver(() => {
+      container.scrollTop = container.scrollHeight;
+    });
+
+    observer.observe(container, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, []);
+
+  const handleSendMessage = async () => {
+    if ((!newMessage.trim() && !selectedFile) || isLoading || !userId) return;
+
+    try {
+      setIsLoading(true);
+      let res;
+
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        formData.append("receiverId", userId);
+
+        res = await axios.post(`${API_URL}/chat/upload`, formData, {
+          withCredentials: true,
+          headers: { "Content-Type": "multipart/form-data" }
+        });
+
+        setSelectedFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+
+        if (res.data?.attachment) {
+          setMessages(prev => [...prev, res.data]);
+        }
+      } else {
+        res = await axios.post(`${API_URL}/chat/user/${userId}/messages`, {
+          content: newMessage
+        }, { withCredentials: true });
+
+        if (res?.data) {
+          setMessages(prev => [...prev, res.data]);
+          setNewMessage("");
+        }
+      }
+    } catch (err) {
+      console.error("Erreur envoi :", err);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'envoyer le message",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getProperImageUrl = (url: string) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    return `${API_URL}/uploads/${url.split('/').pop()}`;
+  };
+
+  const displayName = userName || `${contactInfo.firstName} ${contactInfo.lastName}` || "Utilisateur";
+
+  return (
+    <div className="fixed bottom-0 right-4 w-96 bg-white shadow-lg rounded-md flex flex-col z-50">
+      {/* Header */}
+      <div className="flex items-center justify-between p-3 bg-gray-100 border-b rounded-t-md cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
+        <div className="flex items-center">
+          <div className="relative">
+            <Avatar className="mr-2 w-8 h-8">
+              <AvatarImage src={userAvatar} alt={displayName} />
+              <AvatarFallback>{displayName.charAt(0).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            {isOnline && (
+              <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+            )}
+          </div>
+          <span className="text-sm font-medium">{displayName}</span>
+          <span className="ml-2 text-xs text-gray-500">{isOnline ? "En ligne" : "Hors ligne"}</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onMinimize(); }}>
+            <Minus className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Body */}
+      {isExpanded && (
+        <div className="flex flex-col h-96">
+          <ScrollArea className="flex-1 p-4">
+            <div ref={scrollRef} className="space-y-2 overflow-y-auto max-h-96">
+              {messages.map((message) => (
+                <div
+                  key={message._id}
+                  className={`flex flex-col ${message.sender._id === user?.id ? "items-end" : "items-start"}`}
+                >
+                  <div className={`rounded-lg px-3 py-2 text-sm max-w-[75%] ${message.sender._id === user?.id ? "bg-blue-100 text-blue-800" : "bg-gray-200 text-gray-800"}`}>
+                    {message.attachment ? (
+                      message.attachment.type === "image" ? (
+                        <img
+                          src={getProperImageUrl(message.attachment.url)}
+                          alt="attachment"
+                          className="max-w-full rounded"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Image+non+disponible';
+                          }}
+                        />
+                      ) : (
+                        <div className="flex items-center">
+                          📎 <span className="ml-2">{message.attachment.name || "Pièce jointe"}</span>
+                        </div>
+                      )
+                    ) : (
+                      message.content
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-500 mt-1">
+                    {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+              ))}
+              {selectedFile && (
+                <div className="flex items-center justify-end mt-2">
+                  <div className="bg-blue-50 text-blue-800 px-3 py-2 rounded-md text-sm">
+                    📎 {selectedFile.name}
+                  </div>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+
+          {/* Zone de saisie */}
+          <div className="border-t p-4">
+            <div className="flex items-center space-x-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={(e) => e.target.files && setSelectedFile(e.target.files[0])}
+                className="hidden"
+                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+              />
+              <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>
+                <Paperclip className="h-5 w-5" />
+              </Button>
+              <Textarea
+                rows={1}
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Écrivez votre message..."
+                className="resize-none flex-1"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                disabled={isLoading}
+              />
+              <Button onClick={handleSendMessage} disabled={isLoading || (!newMessage.trim() && !selectedFile)}>
+                {isLoading ? (
+                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                ) : (
+                  <Send className="h-5 w-5 mr-2" />
+                )}
+                Envoyer
+              </Button>
+            </div>
+
+            {/* Boutons d'appel */}
+            <div className="flex items-center justify-end space-x-2 mt-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  toast({
+                    title: `Appel audio initié`,
+                    description: `Tentative d'appel à ${displayName}...`
+                  });
+                  setTimeout(() => {
+                    toast({
+                      title: "Information",
+                      description: `${displayName} n'est pas disponible pour le moment.`
+                    });
+                  }, 3000);
+                }}
+              >
+                <Phone className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  toast({
+                    title: `Appel vidéo initié`,
+                    description: `Tentative d'appel à ${displayName}...`
+                  });
+                  setTimeout(() => {
+                    toast({
+                      title: "Information",
+                      description: `${displayName} n'est pas disponible pour le moment.`
+                    });
+                  }, 3000);
+                }}
+              >
+                <Video className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ChatWindow;
+. Puis pour PostFeedLister: import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
+import Post from "./Post";
+
+const API_URL = window.location.hostname === "localhost"
+  ? "http://localhost:3001/api"
+  : "https://liberte-backend.herokuapp.com/api";
+
+interface PostData {
+  id: string;
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatar?: string;
+  };
+  content: string;
+  images: string[];
+  createdAt: string;
+  isPrivate: boolean;
+  likes: number;
+  liked: boolean;
+  comments: {
+    id: string;
+    user: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      avatar?: string;
+    };
+    content: string;
+    createdAt: string;
+  }[];
+}
+
+interface PostFeedListerProps {
+  refreshTrigger?: number;
+  userId?: string;
+  feedType?: "all" | "friends" | "user" | "popular" | "recent";
+  limit?: number;
+}
+
+// 🔧 Corrige les chemins d’image pour éviter NS_BINDING_ABORTED
+const getProperImageUrl = (url: string): string => {
+  if (!url) return "";
+
+  if (url.startsWith("http")) return url;
+
+  const filename = url.split("/").pop();
+  const base = window.location.hostname === "localhost"
+    ? "http://localhost:3001/uploads"
+    : "https://liberte-backend.herokuapp.com/uploads";
+
+  return `${base}/${filename}`;
+};
+
+const PostFeedLister = ({
+  refreshTrigger = 0,
+  userId,
+  feedType = "all",
+  limit,
+}: PostFeedListerProps) => {
+  const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
+  const [posts, setPosts] = useState<PostData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPosts = async () => {
+    if (!isAuthenticated) return;
+
+    try {
+      setLoading(true);
+
+      let endpoint = `${API_URL}/posts?page=1`;
+      const params: Record<string, string> = {};
+
+      if (limit) params.limit = String(limit);
+
+      if (userId) {
+        endpoint = `${API_URL}/posts/user/${userId}`;
+      } else {
+        switch (feedType) {
+          case "friends":
+            endpoint = `${API_URL}/posts/friends`;
+            break;
+          case "popular":
+            endpoint = `${API_URL}/posts?sort=popularity`;
+            break;
+          case "recent":
+            endpoint = `${API_URL}/posts?sort=latest`;
+            break;
+        }
+      }
+
+      const response = await axios.get(endpoint, {
+        params,
+        withCredentials: true,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        timeout: 15000,
+      });
+
+      const postList = response.data?.posts;
+
+      if (!Array.isArray(postList)) {
+        throw new Error("Format de réponse invalide");
+      }
+
+      const fixedPosts = postList.map((post: PostData) => ({
+        ...post,
+        images: post.images?.map(getProperImageUrl) || [],
+      }));
+
+      setPosts(fixedPosts);
+    } catch (error: any) {
+      console.error("Erreur de chargement des posts:", error.message);
+      toast({
+        title: "Erreur de chargement",
+        description: "Impossible de charger les publications.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger, userId, feedType]);
+
+  const handleLikeToggle = (postId: string) => {
+    setPosts(prev =>
+      prev.map(post =>
+        post.id === postId
+          ? {
+              ...post,
+              liked: !post.liked,
+              likes: post.liked ? post.likes - 1 : post.likes + 1,
+            }
+          : post
+      )
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {loading ? (
+        <div className="text-center py-4">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-e-transparent text-liberte-primary"></div>
+        </div>
+      ) : posts.length > 0 ? (
+        posts.map((post) => (
+          <Post key={post.id} post={post} onLikeToggle={handleLikeToggle} />
+        ))
+      ) : (
+        <div className="text-center py-4 bg-white rounded-lg shadow p-8">
+          <h3 className="text-xl font-semibold mb-2">Aucune publication pour le moment</h3>
+          <p className="text-gray-500">
+            {isAuthenticated
+              ? "Soyez le premier à publier quelque chose !"
+              : "Connectez-vous pour voir plus de contenu et interagir avec la communauté."}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PostFeedLister;
+, Puis pour home: 
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import Navbar from "@/components/Navbar";
+import OnlineUsersList from "@/components/OnlineUsersList";
+import PostFeedLister from "@/components/PostFeedLister";
+import CreatePostForm from "@/components/CreatePostForm";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+
+const Home = () => {
+  const { isAuthenticated, user, loading } = useAuth();
+  const navigate = useNavigate();
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      navigate("/login");
+    }
+  }, [isAuthenticated, loading, navigate]);
+  
+  const handlePostCreated = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-current border-e-transparent align-[-0.125em] text-liberte-primary"></div>
+      </div>
+    );
+  }
+  
+  if (!isAuthenticated) {
+    return null; // We're redirecting anyway
+  }
+  
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <Navbar />
+      
+      <div className="flex-1 flex">
+        <OnlineUsersList />
+        
+        <div className="flex-1 p-6">
+          <div className="max-w-4xl mx-auto">
+            <CreatePostForm onPostCreated={handlePostCreated} />
+            
+            <div className="my-6  grid-cols-1 md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center">
+                    Toutes les publications
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Voir les dernières publications
+                  </p>
+                  <PostFeedLister 
+                    refreshTrigger={refreshTrigger} 
+                    feedType="recent" 
+                    limit={3}
+                  />
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center">
+                    Publications populaires
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Publications avec le plus de commentaires
+                  </p>
+                  <PostFeedLister 
+                    refreshTrigger={refreshTrigger} 
+                    feedType="popular" 
+                    limit={3}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+            
+            <Tabs defaultValue="all" className="mt-6">
+              <TabsList className="w-full mb-4">
+                <TabsTrigger value="all" className="flex-1">Toutes les publications</TabsTrigger>
+                <TabsTrigger value="friends" className="flex-1">Publications des amis</TabsTrigger>
+                <TabsTrigger value="my" className="flex-1">Mes publications</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="all">
+                <h2 className="text-xl font-semibold mb-4">Publications récentes</h2>
+                <PostFeedLister refreshTrigger={refreshTrigger} feedType="all" />
+              </TabsContent>
+              
+              <TabsContent value="friends">
+                <h2 className="text-xl font-semibold mb-4">Publications des amis</h2>
+                <PostFeedLister refreshTrigger={refreshTrigger} feedType="friends" />
+              </TabsContent>
+              
+              <TabsContent value="my">
+                <h2 className="text-xl font-semibold mb-4">Mes publications</h2>
+                <PostFeedLister refreshTrigger={refreshTrigger} userId={user?.id} />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Home;
+, puis pour profil: import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import Navbar from "@/components/Navbar";
+import PostFeedLister from "@/components/PostFeedLister";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
+
+const API_URL = window.location.hostname === 'localhost' 
+  ? "http://localhost:3001/api" 
+  : "https://liberte-backend.herokuapp.com/api";
+
+interface UserProfile {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  avatar?: string;
+  isOnline: boolean;
+}
+
+type FriendshipStatus = "none" | "friends" | "pending_sent" | "pending_received";
+
+const Profile = () => {
+  const { id } = useParams<{ id: string }>();
+  const { user, isAuthenticated, loading } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  const [profileUser, setProfileUser] = useState<UserProfile | null>(null);
+  const [friendshipStatus, setFriendshipStatus] = useState<FriendshipStatus>("none");
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshPosts, setRefreshPosts] = useState(0);
+  
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      navigate("/login");
+    }
+  }, [isAuthenticated, loading, navigate]);
+  
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        if (!id) return;
+        console.log("Fetching user profile for:", id);
+        
+        const response = await axios.get(`${API_URL}/users/${id}`, {
+          withCredentials: true
+        });
+        
+        console.log("User profile data:", response.data);
+        setProfileUser(response.data.user);
+        setFriendshipStatus(response.data.friendshipStatus);
+      } catch (error) {
+        console.error("Failed to fetch user profile:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger le profil de l'utilisateur.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    if (isAuthenticated && id) {
+      fetchUserProfile();
+    }
+  }, [id, isAuthenticated, user, toast]);
+  
+  const handleFriendRequest = async () => {
+    try {
+      await axios.post(`${API_URL}/friends/request/${id}`, {}, {
+        withCredentials: true
+      });
+      
+      setFriendshipStatus("pending_sent");
+      toast({
+        title: "Demande envoyée",
+        description: "Votre demande d'ami a été envoyée avec succès.",
+      });
+    } catch (error) {
+      console.error("Failed to send friend request:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'envoyer la demande d'ami.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleAcceptFriend = async () => {
+    try {
+      await axios.post(`${API_URL}/friends/accept/${id}`, {}, {
+        withCredentials: true
+      });
+      
+      setFriendshipStatus("friends");
+      toast({
+        title: "Demande acceptée",
+        description: "Vous êtes maintenant amis.",
+      });
+    } catch (error) {
+      console.error("Failed to accept friend request:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'accepter la demande d'ami.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleRejectFriend = async () => {
+    try {
+      await axios.post(`${API_URL}/friends/reject/${id}`, {}, {
+        withCredentials: true
+      });
+      
+      setFriendshipStatus("none");
+      toast({
+        title: "Demande rejetée",
+        description: "La demande d'ami a été rejetée.",
+      });
+    } catch (error) {
+      console.error("Failed to reject friend request:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de rejeter la demande d'ami.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleRemoveFriend = async () => {
+    try {
+      await axios.post(`${API_URL}/friends/remove/${id}`, {}, {
+        withCredentials: true
+      });
+      
+      setFriendshipStatus("none");
+      toast({
+        title: "Ami retiré",
+        description: "Cette personne a été retirée de vos amis.",
+      });
+    } catch (error) {
+      console.error("Failed to remove friend:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de retirer cet ami.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  if (loading || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-current border-e-transparent align-[-0.125em] text-liberte-primary"></div>
+      </div>
+    );
+  }
+  
+  if (!profileUser) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gray-50">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-2">Utilisateur non trouvé</h1>
+            <p className="text-gray-600 mb-4">
+              L'utilisateur que vous cherchez n'existe pas.
+            </p>
+            <Button onClick={() => navigate('/home')}>
+              Retourner à l'accueil
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  const isOwnProfile = user?.id === profileUser._id;
+  
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <Navbar />
+      
+      <div className="bg-white shadow">
+        <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-200">
+              {profileUser.avatar ? (
+                <img 
+                  src={profileUser.avatar.startsWith('http') ? profileUser.avatar : `${API_URL}${profileUser.avatar}`} 
+                  alt={`${profileUser.firstName}'s avatar`}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-liberte-primary text-white text-4xl font-bold">
+                  {profileUser.firstName.charAt(0)}
+                </div>
+              )}
+            </div>
+            
+            <div className="text-center md:text-left">
+              <h1 className="text-3xl font-bold flex items-center gap-2">
+                {profileUser.firstName} {profileUser.lastName}
+                {profileUser.isOnline && (
+                  <span className="inline-block w-3 h-3 bg-green-500 rounded-full"></span>
+                )}
+              </h1>
+              
+              {!isOwnProfile && (
+                <div className="mt-4 flex gap-2">
+                  {friendshipStatus === "none" && (
+                    <Button onClick={handleFriendRequest}>
+                      Ajouter comme ami
+                    </Button>
+                  )}
+                  
+                  {friendshipStatus === "pending_sent" && (
+                    <Button variant="outline" disabled>
+                      Demande envoyée
+                    </Button>
+                  )}
+                  
+                  {friendshipStatus === "pending_received" && (
+                    <div className="flex gap-2">
+                      <Button onClick={handleAcceptFriend}>
+                        Accepter
+                      </Button>
+                      <Button variant="outline" onClick={handleRejectFriend}>
+                        Refuser
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {friendshipStatus === "friends" && (
+                    <Button variant="outline" onClick={handleRemoveFriend}>
+                      Retirer des amis
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex-1 p-6">
+        <div className="max-w-2xl mx-auto">
+          <h2 className="text-xl font-bold mb-4">Publications</h2>
+          <PostFeedLister userId={profileUser._id} refreshTrigger={refreshPosts} />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Profile;
+, et pour le chat: import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import OnlineUsersList from "@/components/OnlineUsersList";
+import ChatWindow from "@/components/ChatWindow";
+import { Loader2 } from "lucide-react";
+import axios from "axios";
+import { Link } from "react-router-dom";  // Importation de Link
+
+const API_URL = window.location.hostname === 'localhost' 
+  ? "http://localhost:3001/api" 
+  : "https://liberte-backend.herokuapp.com/api";
+
+interface ChatUser {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  avatar?: string;
+  isOnline: boolean;
+}
+
+interface ChatPreview {
+  id: string;
+  participants: ChatUser[];
+  otherParticipants: ChatUser[];
+  unreadCount: number;
+  lastMessage: {
+    content: string;
+    sender: string;
+    createdAt: string;
+    read: boolean;
+    attachment?: {
+      type: string;
+      url: string;
+      name: string;
+    };
+  };
+  updatedAt: string;
+}
+
+const ChatPage = () => {
+  const { user, isAuthenticated } = useAuth();
+  const [chats, setChats] = useState<ChatPreview[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<ChatUser | null>(null);
+
+  useEffect(() => {
+    const fetchChats = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        setLoading(true);
+        const response = await axios.get(`${API_URL}/chat`, {
+          withCredentials: true
+        });
+        
+        if (response.data) {
+          setChats(response.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch chats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchChats();
+    
+    // Refresh chats every 30 seconds as a fallback
+    const interval = setInterval(fetchChats, 30000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+  
+  const handleSelectUser = (userData: ChatUser) => {
+    setSelectedUser(userData);
+    setSelectedChat(null); // Reset selected chat when selecting a user
+  };
+  
+  const handleSelectChat = (chatId: string) => {
+    setSelectedChat(chatId);
+    setSelectedUser(null); // Reset selected user when selecting a chat
+  };
+  
+  const getProperImageUrl = (url: string) => {
+    if (!url) return '';
+    
+    if (url.startsWith('http')) return url;
+    
+    // If it's a relative URL, make it absolute
+    if (url.startsWith('/uploads/')) {
+      return `${API_URL}${url}`;
+    }
+    
+    // If it's just a filename
+    if (!url.includes('/')) {
+      return `${API_URL}/uploads/${url}`;
+    }
+    
+    return url;
+  };
+  
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p className="text-lg">Veuillez vous connecter pour accéder au chat.</p>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="container mx-auto py-6 max-w-7xl">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Conversations</h1>
+        {/* Ajout du bouton de navigation vers la page d'accueil */}
+        <Link to="/" className="bg-liberte-primary text-white px-4 py-2 rounded-md">
+          Accueil
+        </Link>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <div className="md:col-span-4 lg:col-span-3">
+          <Tabs defaultValue="chats" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="chats">Conversations</TabsTrigger>
+              <TabsTrigger value="users">Utilisateurs</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="chats" className="border rounded-md h-[calc(100vh-240px)]">
+              <ScrollArea className="h-full">
+                {loading ? (
+                  <div className="flex items-center justify-center h-40">
+                    <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+                  </div>
+                ) : chats.length > 0 ? (
+                  <div className="divide-y">
+                    {chats.map((chat) => {
+                      const otherUser = chat.otherParticipants[0];
+                      return (
+                        <div 
+                          key={chat.id}
+                          className={`p-3 cursor-pointer hover:bg-gray-50 transition-colors ${selectedChat === chat.id ? 'bg-gray-100' : ''}`}
+                          onClick={() => handleSelectChat(chat.id)}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="relative">
+                              <img 
+                                src={otherUser?.avatar ? getProperImageUrl(otherUser.avatar) : "https://via.placeholder.com/40"}
+                                alt={`${otherUser?.firstName} ${otherUser?.lastName}`}
+                                className="w-10 h-10 rounded-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = "https://via.placeholder.com/40?text=?";
+                                }}
+                              />
+                              {otherUser?.isOnline && (
+                                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">
+                                {otherUser?.firstName} {otherUser?.lastName}
+                              </p>
+                              <p className="text-sm text-gray-500 truncate">
+                                {chat.lastMessage?.content || "Aucun message"}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-end">
+                              <p className="text-xs text-gray-500">
+                                {new Date(chat.lastMessage?.createdAt || chat.updatedAt).toLocaleDateString()}
+                              </p>
+                              {chat.unreadCount > 0 && (
+                                <span className="bg-liberte-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center mt-1">
+                                  {chat.unreadCount}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-40 text-gray-500">
+                    <p>Aucune conversation</p>
+                  </div>
+                )}
+              </ScrollArea>
+            </TabsContent>
+            
+            <TabsContent value="users" className="border rounded-md h-[calc(100vh-240px)]">
+              <OnlineUsersList onSelectUser={handleSelectUser} embedded={true} />
+            </TabsContent>
+          </Tabs>
+        </div>
+        
+        <div className="md:col-span-8 lg:col-span-9 border rounded-md h-[calc(100vh-240px)]">
+          {selectedChat ? (
+            <ChatConversation chatId={selectedChat} onClose={() => setSelectedChat(null)} />
+          ) : selectedUser ? (
+            <ChatWindow 
+              userId={selectedUser._id} 
+              userName={`${selectedUser.firstName} ${selectedUser.lastName}`}
+              userAvatar={selectedUser.avatar}
+              embedded={true}
+              onClose={() => setSelectedUser(null)}  // Ajout de la possibilité de fermer la fenêtre de chat
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-gray-500">
+              <p>Sélectionnez une conversation ou un utilisateur pour commencer à discuter</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Component to display a conversation in the main area
+const ChatConversation = ({ chatId, onClose }: { chatId: string, onClose: () => void }) => {
+  const [chat, setChat] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  
+  useEffect(() => {
+    const fetchChat = async () => {
+      if (!chatId) return;
+      
+      try {
+        setLoading(true);
+        const response = await axios.get(`${API_URL}/chat/${chatId}`, {
+          withCredentials: true
+        });
+        
+        if (response.data) {
+          setChat(response.data);
+          
+          // Mark messages as read
+          await axios.patch(`${API_URL}/chat/${chatId}/read`, {}, {
+            withCredentials: true
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching chat:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchChat();
+  }, [chatId]);
+  
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+      </div>
+    );
+  }
+  
+  if (!chat) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-gray-500">
+        <p>Conversation non trouvée</p>
+      </div>
+    );
+  }
+  
+  const otherUser = chat.participants.find(p => p._id !== user?.id);
+  
+  return (
+    <ChatWindow 
+      userId={otherUser._id}
+      userName={`${otherUser.firstName} ${otherUser.lastName}`}
+      userAvatar={otherUser.avatar}
+      embedded={true}
+      chatId={chatId}
+      onClose={onClose}
+    />
+  );
+};
+
+export default ChatPage;
+, et ensuite pour onlineUserslist: import { useState, useEffect } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "react-router-dom";
+import { MessageCircle } from "lucide-react";
+import { useChat } from "@/contexts/ChatContext";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import axios from "axios";
+
+const API_URL = window.location.hostname === 'localhost' 
+  ? "http://localhost:3001/api" 
+  : "https://liberte-backend.herokuapp.com/api";
+
+interface OnlineUser {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  avatar?: string;
+  isOnline: boolean;
+}
+
+const OnlineUsersList = () => {
+  const { isAuthenticated, user } = useAuth();
+  const { openChat } = useChat();
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
+  const [offlineUsers, setOfflineUsers] = useState<OnlineUser[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      if (!isAuthenticated) return;
+
+      try {
+        setLoading(true);
+        const response = await axios.get(`${API_URL}/users/online`, {
+          withCredentials: true,
+        });
+
+        if (response.data) {
+          const online: OnlineUser[] = [];
+          const offline: OnlineUser[] = [];
+
+          response.data.forEach((userData: OnlineUser) => {
+            if (userData.isOnline) {
+              online.push(userData);
+            } else {
+              offline.push(userData);
+            }
+          });
+
+          setOnlineUsers(online);
+          setOfflineUsers(offline);
+        }
+      } catch (error) {
+        console.error("Erreur lors du chargement des utilisateurs :", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+    const interval = setInterval(fetchUsers, 30000);
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  };
+
+  const handleStartChat = (userData: OnlineUser) => {
+    if (openChat && userData._id) {
+      openChat(userData._id, `${userData.firstName} ${userData.lastName}`, userData.avatar);
+    }
+  };
+
+  const filteredOnlineUsers = onlineUsers.filter((u) => u._id !== user?.id);
+  const filteredOfflineUsers = offlineUsers.filter((u) => u._id !== user?.id);
+
+  return (
+    <aside className="hidden md:flex flex-col w-72 bg-white border-r h-screen">
+      <div className="p-4 border-b">
+        <h2 className="text-lg font-semibold">Utilisateurs</h2>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4">
+        {loading ? (
+          <div className="flex justify-center py-4">
+            <div className="h-6 w-6 border-2 border-liberte-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredOnlineUsers.length > 0 && (
+              <div>
+                <div className="flex items-center mb-2">
+                  <Badge className="mr-2 bg-green-500 hover:bg-green-600">En ligne</Badge>
+                  <span className="text-xs text-gray-500">{filteredOnlineUsers.length} utilisateur(s)</span>
+                </div>
+                <div className="space-y-2">
+                  {filteredOnlineUsers.map((onlineUser) => (
+                    <div
+                      key={onlineUser._id}
+                      className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md transition-colors"
+                    >
+                      <Link to={`/profile/${onlineUser._id}`} className="flex items-center flex-1">
+                        <div className="relative">
+                          <Avatar>
+                            <AvatarImage src={onlineUser.avatar} />
+                            <AvatarFallback>{getInitials(onlineUser.firstName, onlineUser.lastName)}</AvatarFallback>
+                          </Avatar>
+                          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                        </div>
+                        <div className="ml-3">
+                          <p className="font-medium text-sm">
+                            {onlineUser.firstName} {onlineUser.lastName}
+                          </p>
+                        </div>
+                      </Link>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-gray-500 hover:text-liberte-primary"
+                        onClick={() => handleStartChat(onlineUser)}
+                      >
+                        <MessageCircle size={18} />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {filteredOfflineUsers.length > 0 && (
+              <div>
+                <div className="flex items-center mb-2">
+                  <Badge variant="secondary" className="mr-2">
+                    Hors ligne
+                  </Badge>
+                  <span className="text-xs text-gray-500">{filteredOfflineUsers.length} utilisateur(s)</span>
+                </div>
+                <div className="space-y-2">
+                  {filteredOfflineUsers.map((offlineUser) => (
+                    <div
+                      key={offlineUser._id}
+                      className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md transition-colors"
+                    >
+                      <Link to={`/profile/${offlineUser._id}`} className="flex items-center flex-1">
+                        <div className="relative">
+                          <Avatar>
+                            <AvatarImage src={offlineUser.avatar} />
+                            <AvatarFallback>{getInitials(offlineUser.firstName, offlineUser.lastName)}</AvatarFallback>
+                          </Avatar>
+                          <span className="absolute bottom-0 right-0 w-3 h-3 bg-gray-400 border-2 border-white rounded-full"></span>
+                        </div>
+                        <div className="ml-3">
+                          <p className="font-medium text-sm text-gray-600">
+                            {offlineUser.firstName} {offlineUser.lastName}
+                          </p>
+                        </div>
+                      </Link>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-gray-400 hover:text-liberte-primary"
+                        onClick={() => handleStartChat(offlineUser)}
+                      >
+                        <MessageCircle size={18} />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {filteredOnlineUsers.length === 0 && filteredOfflineUsers.length === 0 && (
+              <p className="text-gray-500 text-sm text-center">Aucun utilisateur disponible pour le moment</p>
+            )}
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+};
+
+export default OnlineUsersList;
+ et enfin enleve le socket.io et simple-peer . Puis dansla page de Profil, il faut que on recupère tous les les liste des personnes amis. et on il y aura des suggestion ajouter des amis, et on aura des bouton, faire demande amis. et en attente d'avale de la personne. et si on clique sur le nom de la personnes. on sera dirriger a une page pour voir tous les renseignement de la personnes et voir tous ce que il a publier, et on peux mettre jaime ou commenter, si ce n'est pas encore notre amis, on voit que ses publication public, mais si c'est deja amis, on vois tous ses publication.
+ utilise ce code pour chatwindow: import React, { useState, useEffect, useRef } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { X, Minus, Paperclip, Send, Phone, Video } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
+
+export interface ChatWindowExtendedProps {
+  userId: string;
+  userName?: string;
+  userAvatar?: string;
+  onClose: () => void;
+  onMinimize: () => void;
+}
+
+const API_URL = window.location.hostname === "localhost"
+  ? "http://localhost:3001/api"
+  : "https://liberte-backend.herokuapp.com/api";
+
+const ChatWindow: React.FC<ChatWindowExtendedProps> = ({
+  userId,
+  userName = "Utilisateur",
+  userAvatar,
+  onClose,
+  onMinimize
+}) => {
+  const [messages, setMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isOnline, setIsOnline] = useState(false);
+  const [contactInfo, setContactInfo] = useState<any>({ firstName: "", lastName: "" });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Récupération des infos utilisateur
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/users/${userId}`, { withCredentials: true });
+        if (res.data?.user) {
+          setIsOnline(res.data.user.isOnline || false);
+          setContactInfo({
+            firstName: res.data.user.firstName || "",
+            lastName: res.data.user.lastName || ""
+          });
+        }
+      } catch (err) {
+        console.error("Erreur utilisateur :", err);
+      }
+    };
+    if (userId) fetchUserInfo();
+  }, [userId]);
+
+  // Chargement des messages et polling
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchMessages = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/chat/user/${userId}`, { withCredentials: true });
+        if (res.data?.messages && isMounted) {
+          setMessages((prev) => {
+            const newMessages = res.data.messages;
+            if (JSON.stringify(prev) !== JSON.stringify(newMessages)) {
+              return newMessages;
+            }
+            return prev;
+          });
+
+          if (res.data._id) {
+            await axios.patch(`${API_URL}/chat/${res.data._id}/read`, {}, { withCredentials: true });
+          }
+        }
+      } catch (err) {
+        console.error("Erreur de polling :", err);
+      }
+    };
+
+    if (user && userId) {
+      fetchMessages();
+      pollingRef.current = setInterval(fetchMessages, 3000);
+    }
+
+    return () => {
+      isMounted = false;
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [userId, user]);
+
+  // Scroll auto vers le bas (observer)
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const observer = new MutationObserver(() => {
+      container.scrollTop = container.scrollHeight;
+    });
+
+    observer.observe(container, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, []);
+
+  const handleSendMessage = async () => {
+    if ((!newMessage.trim() && !selectedFile) || isLoading || !userId) return;
+
+    try {
+      setIsLoading(true);
+      let res;
+
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        formData.append("receiverId", userId);
+
+        res = await axios.post(`${API_URL}/chat/upload`, formData, {
+          withCredentials: true,
+          headers: { "Content-Type": "multipart/form-data" }
+        });
+
+        setSelectedFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+
+        if (res.data?.attachment) {
+          setMessages(prev => [...prev, res.data]);
+        }
+      } else {
+        res = await axios.post(`${API_URL}/chat/user/${userId}/messages`, {
+          content: newMessage
+        }, { withCredentials: true });
+
+        if (res?.data) {
+          setMessages(prev => [...prev, res.data]);
+          setNewMessage("");
+        }
+      }
+    } catch (err) {
+      console.error("Erreur envoi :", err);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'envoyer le message",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getProperImageUrl = (url: string) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    return `${API_URL}/uploads/${url.split('/').pop()}`;
+  };
+
+  const displayName = userName || `${contactInfo.firstName} ${contactInfo.lastName}` || "Utilisateur";
+
+  return (
+    <div className="fixed bottom-0 right-4 w-96 bg-white shadow-lg rounded-md flex flex-col z-50">
+      {/* Header */}
+      <div className="flex items-center justify-between p-3 bg-gray-100 border-b rounded-t-md cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
+        <div className="flex items-center">
+          <div className="relative">
+            <Avatar className="mr-2 w-8 h-8">
+              <AvatarImage src={userAvatar} alt={displayName} />
+              <AvatarFallback>{displayName.charAt(0).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            {isOnline && (
+              <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+            )}
+          </div>
+          <span className="text-sm font-medium">{displayName}</span>
+          <span className="ml-2 text-xs text-gray-500">{isOnline ? "En ligne" : "Hors ligne"}</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onMinimize(); }}>
+            <Minus className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Body */}
+      {isExpanded && (
+        <div className="flex flex-col h-96">
+          <ScrollArea className="flex-1 p-4">
+            <div ref={scrollRef} className="space-y-2 overflow-y-auto max-h-96">
+              {messages.map((message) => (
+                <div
+                  key={message._id}
+                  className={`flex flex-col ${message.sender._id === user?.id ? "items-end" : "items-start"}`}
+                >
+                  <div className={`rounded-lg px-3 py-2 text-sm max-w-[75%] ${message.sender._id === user?.id ? "bg-blue-100 text-blue-800" : "bg-gray-200 text-gray-800"}`}>
+                    {message.attachment ? (
+                      message.attachment.type === "image" ? (
+                        <img
+                          src={getProperImageUrl(message.attachment.url)}
+                          alt="attachment"
+                          className="max-w-full rounded"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Image+non+disponible';
+                          }}
+                        />
+                      ) : (
+                        <div className="flex items-center">
+                          📎 <span className="ml-2">{message.attachment.name || "Pièce jointe"}</span>
+                        </div>
+                      )
+                    ) : (
+                      message.content
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-500 mt-1">
+                    {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+              ))}
+              {selectedFile && (
+                <div className="flex items-center justify-end mt-2">
+                  <div className="bg-blue-50 text-blue-800 px-3 py-2 rounded-md text-sm">
+                    📎 {selectedFile.name}
+                  </div>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+
+          {/* Zone de saisie */}
+          <div className="border-t p-4">
+            <div className="flex items-center space-x-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={(e) => e.target.files && setSelectedFile(e.target.files[0])}
+                className="hidden"
+                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+              />
+              <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>
+                <Paperclip className="h-5 w-5" />
+              </Button>
+              <Textarea
+                rows={1}
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Écrivez votre message..."
+                className="resize-none flex-1"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                disabled={isLoading}
+              />
+              <Button onClick={handleSendMessage} disabled={isLoading || (!newMessage.trim() && !selectedFile)}>
+                {isLoading ? (
+                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                ) : (
+                  <Send className="h-5 w-5 mr-2" />
+                )}
+                Envoyer
+              </Button>
+            </div>
+
+            {/* Boutons d'appel */}
+            <div className="flex items-center justify-end space-x-2 mt-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  toast({
+                    title: `Appel audio initié`,
+                    description: `Tentative d'appel à ${displayName}...`
+                  });
+                  setTimeout(() => {
+                    toast({
+                      title: "Information",
+                      description: `${displayName} n'est pas disponible pour le moment.`
+                    });
+                  }, 3000);
+                }}
+              >
+                <Phone className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  toast({
+                    title: `Appel vidéo initié`,
+                    description: `Tentative d'appel à ${displayName}...`
+                  });
+                  setTimeout(() => {
+                    toast({
+                      title: "Information",
+                      description: `${displayName} n'est pas disponible pour le moment.`
+                    });
+                  }, 3000);
+                }}
+              >
+                <Video className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ChatWindow;
+. Puis pour PostFeedLister: import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
+import Post from "./Post";
+
+const API_URL = window.location.hostname === "localhost"
+  ? "http://localhost:3001/api"
+  : "https://liberte-backend.herokuapp.com/api";
+
+interface PostData {
+  id: string;
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatar?: string;
+  };
+  content: string;
+  images: string[];
+  createdAt: string;
+  isPrivate: boolean;
+  likes: number;
+  liked: boolean;
+  comments: {
+    id: string;
+    user: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      avatar?: string;
+    };
+    content: string;
+    createdAt: string;
+  }[];
+}
+
+interface PostFeedListerProps {
+  refreshTrigger?: number;
+  userId?: string;
+  feedType?: "all" | "friends" | "user" | "popular" | "recent";
+  limit?: number;
+}
+
+// 🔧 Corrige les chemins d’image pour éviter NS_BINDING_ABORTED
+const getProperImageUrl = (url: string): string => {
+  if (!url) return "";
+
+  if (url.startsWith("http")) return url;
+
+  const filename = url.split("/").pop();
+  const base = window.location.hostname === "localhost"
+    ? "http://localhost:3001/uploads"
+    : "https://liberte-backend.herokuapp.com/uploads";
+
+  return `${base}/${filename}`;
+};
+
+const PostFeedLister = ({
+  refreshTrigger = 0,
+  userId,
+  feedType = "all",
+  limit,
+}: PostFeedListerProps) => {
+  const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
+  const [posts, setPosts] = useState<PostData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPosts = async () => {
+    if (!isAuthenticated) return;
+
+    try {
+      setLoading(true);
+
+      let endpoint = `${API_URL}/posts?page=1`;
+      const params: Record<string, string> = {};
+
+      if (limit) params.limit = String(limit);
+
+      if (userId) {
+        endpoint = `${API_URL}/posts/user/${userId}`;
+      } else {
+        switch (feedType) {
+          case "friends":
+            endpoint = `${API_URL}/posts/friends`;
+            break;
+          case "popular":
+            endpoint = `${API_URL}/posts?sort=popularity`;
+            break;
+          case "recent":
+            endpoint = `${API_URL}/posts?sort=latest`;
+            break;
+        }
+      }
+
+      const response = await axios.get(endpoint, {
+        params,
+        withCredentials: true,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        timeout: 15000,
+      });
+
+      const postList = response.data?.posts;
+
+      if (!Array.isArray(postList)) {
+        throw new Error("Format de réponse invalide");
+      }
+
+      const fixedPosts = postList.map((post: PostData) => ({
+        ...post,
+        images: post.images?.map(getProperImageUrl) || [],
+      }));
+
+      setPosts(fixedPosts);
+    } catch (error: any) {
+      console.error("Erreur de chargement des posts:", error.message);
+      toast({
+        title: "Erreur de chargement",
+        description: "Impossible de charger les publications.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger, userId, feedType]);
+
+  const handleLikeToggle = (postId: string) => {
+    setPosts(prev =>
+      prev.map(post =>
+        post.id === postId
+          ? {
+              ...post,
+              liked: !post.liked,
+              likes: post.liked ? post.likes - 1 : post.likes + 1,
+            }
+          : post
+      )
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {loading ? (
+        <div className="text-center py-4">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-e-transparent text-liberte-primary"></div>
+        </div>
+      ) : posts.length > 0 ? (
+        posts.map((post) => (
+          <Post key={post.id} post={post} onLikeToggle={handleLikeToggle} />
+        ))
+      ) : (
+        <div className="text-center py-4 bg-white rounded-lg shadow p-8">
+          <h3 className="text-xl font-semibold mb-2">Aucune publication pour le moment</h3>
+          <p className="text-gray-500">
+            {isAuthenticated
+              ? "Soyez le premier à publier quelque chose !"
+              : "Connectez-vous pour voir plus de contenu et interagir avec la communauté."}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PostFeedLister;
+, Puis pour home: 
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import Navbar from "@/components/Navbar";
+import OnlineUsersList from "@/components/OnlineUsersList";
+import PostFeedLister from "@/components/PostFeedLister";
+import CreatePostForm from "@/components/CreatePostForm";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+
+const Home = () => {
+  const { isAuthenticated, user, loading } = useAuth();
+  const navigate = useNavigate();
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      navigate("/login");
+    }
+  }, [isAuthenticated, loading, navigate]);
+  
+  const handlePostCreated = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-current border-e-transparent align-[-0.125em] text-liberte-primary"></div>
+      </div>
+    );
+  }
+  
+  if (!isAuthenticated) {
+    return null; // We're redirecting anyway
+  }
+  
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <Navbar />
+      
+      <div className="flex-1 flex">
+        <OnlineUsersList />
+        
+        <div className="flex-1 p-6">
+          <div className="max-w-4xl mx-auto">
+            <CreatePostForm onPostCreated={handlePostCreated} />
+            
+            <div className="my-6  grid-cols-1 md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center">
+                    Toutes les publications
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Voir les dernières publications
+                  </p>
+                  <PostFeedLister 
+                    refreshTrigger={refreshTrigger} 
+                    feedType="recent" 
+                    limit={3}
+                  />
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center">
+                    Publications populaires
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Publications avec le plus de commentaires
+                  </p>
+                  <PostFeedLister 
+                    refreshTrigger={refreshTrigger} 
+                    feedType="popular" 
+                    limit={3}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+            
+            <Tabs defaultValue="all" className="mt-6">
+              <TabsList className="w-full mb-4">
+                <TabsTrigger value="all" className="flex-1">Toutes les publications</TabsTrigger>
+                <TabsTrigger value="friends" className="flex-1">Publications des amis</TabsTrigger>
+                <TabsTrigger value="my" className="flex-1">Mes publications</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="all">
+                <h2 className="text-xl font-semibold mb-4">Publications récentes</h2>
+                <PostFeedLister refreshTrigger={refreshTrigger} feedType="all" />
+              </TabsContent>
+              
+              <TabsContent value="friends">
+                <h2 className="text-xl font-semibold mb-4">Publications des amis</h2>
+                <PostFeedLister refreshTrigger={refreshTrigger} feedType="friends" />
+              </TabsContent>
+              
+              <TabsContent value="my">
+                <h2 className="text-xl font-semibold mb-4">Mes publications</h2>
+                <PostFeedLister refreshTrigger={refreshTrigger} userId={user?.id} />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Home;
+, puis pour profil: import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import Navbar from "@/components/Navbar";
+import PostFeedLister from "@/components/PostFeedLister";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
+
+const API_URL = window.location.hostname === 'localhost' 
+  ? "http://localhost:3001/api" 
+  : "https://liberte-backend.herokuapp.com/api";
+
+interface UserProfile {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  avatar?: string;
+  isOnline: boolean;
+}
+
+type FriendshipStatus = "none" | "friends" | "pending_sent" | "pending_received";
+
+const Profile = () => {
+  const { id } = useParams<{ id: string }>();
+  const { user, isAuthenticated, loading } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  const [profileUser, setProfileUser] = useState<UserProfile | null>(null);
+  const [friendshipStatus, setFriendshipStatus] = useState<FriendshipStatus>("none");
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshPosts, setRefreshPosts] = useState(0);
+  
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      navigate("/login");
+    }
+  }, [isAuthenticated, loading, navigate]);
+  
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        if (!id) return;
+        console.log("Fetching user profile for:", id);
+        
+        const response = await axios.get(`${API_URL}/users/${id}`, {
+          withCredentials: true
+        });
+        
+        console.log("User profile data:", response.data);
+        setProfileUser(response.data.user);
+        setFriendshipStatus(response.data.friendshipStatus);
+      } catch (error) {
+        console.error("Failed to fetch user profile:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger le profil de l'utilisateur.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    if (isAuthenticated && id) {
+      fetchUserProfile();
+    }
+  }, [id, isAuthenticated, user, toast]);
+  
+  const handleFriendRequest = async () => {
+    try {
+      await axios.post(`${API_URL}/friends/request/${id}`, {}, {
+        withCredentials: true
+      });
+      
+      setFriendshipStatus("pending_sent");
+      toast({
+        title: "Demande envoyée",
+        description: "Votre demande d'ami a été envoyée avec succès.",
+      });
+    } catch (error) {
+      console.error("Failed to send friend request:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'envoyer la demande d'ami.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleAcceptFriend = async () => {
+    try {
+      await axios.post(`${API_URL}/friends/accept/${id}`, {}, {
+        withCredentials: true
+      });
+      
+      setFriendshipStatus("friends");
+      toast({
+        title: "Demande acceptée",
+        description: "Vous êtes maintenant amis.",
+      });
+    } catch (error) {
+      console.error("Failed to accept friend request:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'accepter la demande d'ami.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleRejectFriend = async () => {
+    try {
+      await axios.post(`${API_URL}/friends/reject/${id}`, {}, {
+        withCredentials: true
+      });
+      
+      setFriendshipStatus("none");
+      toast({
+        title: "Demande rejetée",
+        description: "La demande d'ami a été rejetée.",
+      });
+    } catch (error) {
+      console.error("Failed to reject friend request:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de rejeter la demande d'ami.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleRemoveFriend = async () => {
+    try {
+      await axios.post(`${API_URL}/friends/remove/${id}`, {}, {
+        withCredentials: true
+      });
+      
+      setFriendshipStatus("none");
+      toast({
+        title: "Ami retiré",
+        description: "Cette personne a été retirée de vos amis.",
+      });
+    } catch (error) {
+      console.error("Failed to remove friend:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de retirer cet ami.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  if (loading || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-current border-e-transparent align-[-0.125em] text-liberte-primary"></div>
+      </div>
+    );
+  }
+  
+  if (!profileUser) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gray-50">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-2">Utilisateur non trouvé</h1>
+            <p className="text-gray-600 mb-4">
+              L'utilisateur que vous cherchez n'existe pas.
+            </p>
+            <Button onClick={() => navigate('/home')}>
+              Retourner à l'accueil
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  const isOwnProfile = user?.id === profileUser._id;
+  
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <Navbar />
+      
+      <div className="bg-white shadow">
+        <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-200">
+              {profileUser.avatar ? (
+                <img 
+                  src={profileUser.avatar.startsWith('http') ? profileUser.avatar : `${API_URL}${profileUser.avatar}`} 
+                  alt={`${profileUser.firstName}'s avatar`}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-liberte-primary text-white text-4xl font-bold">
+                  {profileUser.firstName.charAt(0)}
+                </div>
+              )}
+            </div>
+            
+            <div className="text-center md:text-left">
+              <h1 className="text-3xl font-bold flex items-center gap-2">
+                {profileUser.firstName} {profileUser.lastName}
+                {profileUser.isOnline && (
+                  <span className="inline-block w-3 h-3 bg-green-500 rounded-full"></span>
+                )}
+              </h1>
+              
+              {!isOwnProfile && (
+                <div className="mt-4 flex gap-2">
+                  {friendshipStatus === "none" && (
+                    <Button onClick={handleFriendRequest}>
+                      Ajouter comme ami
+                    </Button>
+                  )}
+                  
+                  {friendshipStatus === "pending_sent" && (
+                    <Button variant="outline" disabled>
+                      Demande envoyée
+                    </Button>
+                  )}
+                  
+                  {friendshipStatus === "pending_received" && (
+                    <div className="flex gap-2">
+                      <Button onClick={handleAcceptFriend}>
+                        Accepter
+                      </Button>
+                      <Button variant="outline" onClick={handleRejectFriend}>
+                        Refuser
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {friendshipStatus === "friends" && (
+                    <Button variant="outline" onClick={handleRemoveFriend}>
+                      Retirer des amis
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex-1 p-6">
+        <div className="max-w-2xl mx-auto">
+          <h2 className="text-xl font-bold mb-4">Publications</h2>
+          <PostFeedLister userId={profileUser._id} refreshTrigger={refreshPosts} />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Profile;
+, et pour le chat: import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import OnlineUsersList from "@/components/OnlineUsersList";
+import ChatWindow from "@/components/ChatWindow";
+import { Loader2 } from "lucide-react";
+import axios from "axios";
+import { Link } from "react-router-dom";  // Importation de Link
+
+const API_URL = window.location.hostname === 'localhost' 
+  ? "http://localhost:3001/api" 
+  : "https://liberte-backend.herokuapp.com/api";
+
+interface ChatUser {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  avatar?: string;
+  isOnline: boolean;
+}
+
+interface ChatPreview {
+  id: string;
+  participants: ChatUser[];
+  otherParticipants: ChatUser[];
+  unreadCount: number;
+  lastMessage: {
+    content: string;
+    sender: string;
+    createdAt: string;
+    read: boolean;
+    attachment?: {
+      type: string;
+      url: string;
+      name: string;
+    };
+  };
+  updatedAt: string;
+}
+
+const ChatPage = () => {
+  const { user, isAuthenticated } = useAuth();
+  const [chats, setChats] = useState<ChatPreview[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<ChatUser | null>(null);
+
+  useEffect(() => {
+    const fetchChats = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        setLoading(true);
+        const response = await axios.get(`${API_URL}/chat`, {
+          withCredentials: true
+        });
+        
+        if (response.data) {
+          setChats(response.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch chats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchChats();
+    
+    // Refresh chats every 30 seconds as a fallback
+    const interval = setInterval(fetchChats, 30000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+  
+  const handleSelectUser = (userData: ChatUser) => {
+    setSelectedUser(userData);
+    setSelectedChat(null); // Reset selected chat when selecting a user
+  };
+  
+  const handleSelectChat = (chatId: string) => {
+    setSelectedChat(chatId);
+    setSelectedUser(null); // Reset selected user when selecting a chat
+  };
+  
+  const getProperImageUrl = (url: string) => {
+    if (!url) return '';
+    
+    if (url.startsWith('http')) return url;
+    
+    // If it's a relative URL, make it absolute
+    if (url.startsWith('/uploads/')) {
+      return `${API_URL}${url}`;
+    }
+    
+    // If it's just a filename
+    if (!url.includes('/')) {
+      return `${API_URL}/uploads/${url}`;
+    }
+    
+    return url;
+  };
+  
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p className="text-lg">Veuillez vous connecter pour accéder au chat.</p>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="container mx-auto py-6 max-w-7xl">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Conversations</h1>
+        {/* Ajout du bouton de navigation vers la page d'accueil */}
+        <Link to="/" className="bg-liberte-primary text-white px-4 py-2 rounded-md">
+          Accueil
+        </Link>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <div className="md:col-span-4 lg:col-span-3">
+          <Tabs defaultValue="chats" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="chats">Conversations</TabsTrigger>
+              <TabsTrigger value="users">Utilisateurs</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="chats" className="border rounded-md h-[calc(100vh-240px)]">
+              <ScrollArea className="h-full">
+                {loading ? (
+                  <div className="flex items-center justify-center h-40">
+                    <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+                  </div>
+                ) : chats.length > 0 ? (
+                  <div className="divide-y">
+                    {chats.map((chat) => {
+                      const otherUser = chat.otherParticipants[0];
+                      return (
+                        <div 
+                          key={chat.id}
+                          className={`p-3 cursor-pointer hover:bg-gray-50 transition-colors ${selectedChat === chat.id ? 'bg-gray-100' : ''}`}
+                          onClick={() => handleSelectChat(chat.id)}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="relative">
+                              <img 
+                                src={otherUser?.avatar ? getProperImageUrl(otherUser.avatar) : "https://via.placeholder.com/40"}
+                                alt={`${otherUser?.firstName} ${otherUser?.lastName}`}
+                                className="w-10 h-10 rounded-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = "https://via.placeholder.com/40?text=?";
+                                }}
+                              />
+                              {otherUser?.isOnline && (
+                                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">
+                                {otherUser?.firstName} {otherUser?.lastName}
+                              </p>
+                              <p className="text-sm text-gray-500 truncate">
+                                {chat.lastMessage?.content || "Aucun message"}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-end">
+                              <p className="text-xs text-gray-500">
+                                {new Date(chat.lastMessage?.createdAt || chat.updatedAt).toLocaleDateString()}
+                              </p>
+                              {chat.unreadCount > 0 && (
+                                <span className="bg-liberte-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center mt-1">
+                                  {chat.unreadCount}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-40 text-gray-500">
+                    <p>Aucune conversation</p>
+                  </div>
+                )}
+              </ScrollArea>
+            </TabsContent>
+            
+            <TabsContent value="users" className="border rounded-md h-[calc(100vh-240px)]">
+              <OnlineUsersList onSelectUser={handleSelectUser} embedded={true} />
+            </TabsContent>
+          </Tabs>
+        </div>
+        
+        <div className="md:col-span-8 lg:col-span-9 border rounded-md h-[calc(100vh-240px)]">
+          {selectedChat ? (
+            <ChatConversation chatId={selectedChat} onClose={() => setSelectedChat(null)} />
+          ) : selectedUser ? (
+            <ChatWindow 
+              userId={selectedUser._id} 
+              userName={`${selectedUser.firstName} ${selectedUser.lastName}`}
+              userAvatar={selectedUser.avatar}
+              embedded={true}
+              onClose={() => setSelectedUser(null)}  // Ajout de la possibilité de fermer la fenêtre de chat
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-gray-500">
+              <p>Sélectionnez une conversation ou un utilisateur pour commencer à discuter</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Component to display a conversation in the main area
+const ChatConversation = ({ chatId, onClose }: { chatId: string, onClose: () => void }) => {
+  const [chat, setChat] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  
+  useEffect(() => {
+    const fetchChat = async () => {
+      if (!chatId) return;
+      
+      try {
+        setLoading(true);
+        const response = await axios.get(`${API_URL}/chat/${chatId}`, {
+          withCredentials: true
+        });
+        
+        if (response.data) {
+          setChat(response.data);
+          
+          // Mark messages as read
+          await axios.patch(`${API_URL}/chat/${chatId}/read`, {}, {
+            withCredentials: true
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching chat:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchChat();
+  }, [chatId]);
+  
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+      </div>
+    );
+  }
+  
+  if (!chat) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-gray-500">
+        <p>Conversation non trouvée</p>
+      </div>
+    );
+  }
+  
+  const otherUser = chat.participants.find(p => p._id !== user?.id);
+  
+  return (
+    <ChatWindow 
+      userId={otherUser._id}
+      userName={`${otherUser.firstName} ${otherUser.lastName}`}
+      userAvatar={otherUser.avatar}
+      embedded={true}
+      chatId={chatId}
+      onClose={onClose}
+    />
+  );
+};
+
+export default ChatPage;
+, et ensuite pour onlineUserslist: import { useState, useEffect } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "react-router-dom";
+import { MessageCircle } from "lucide-react";
+import { useChat } from "@/contexts/ChatContext";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import axios from "axios";
+
+const API_URL = window.location.hostname === 'localhost' 
+  ? "http://localhost:3001/api" 
+  : "https://liberte-backend.herokuapp.com/api";
+
+interface OnlineUser {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  avatar?: string;
+  isOnline: boolean;
+}
+
+const OnlineUsersList = () => {
+  const { isAuthenticated, user } = useAuth();
+  const { openChat } = useChat();
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
+  const [offlineUsers, setOfflineUsers] = useState<OnlineUser[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      if (!isAuthenticated) return;
+
+      try {
+        setLoading(true);
+        const response = await axios.get(`${API_URL}/users/online`, {
+          withCredentials: true,
+        });
+
+        if (response.data) {
+          const online: OnlineUser[] = [];
+          const offline: OnlineUser[] = [];
+
+          response.data.forEach((userData: OnlineUser) => {
+            if (userData.isOnline) {
+              online.push(userData);
+            } else {
+              offline.push(userData);
+            }
+          });
+
+          setOnlineUsers(online);
+          setOfflineUsers(offline);
+        }
+      } catch (error) {
+        console.error("Erreur lors du chargement des utilisateurs :", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+    const interval = setInterval(fetchUsers, 30000);
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  };
+
+  const handleStartChat = (userData: OnlineUser) => {
+    if (openChat && userData._id) {
+      openChat(userData._id, `${userData.firstName} ${userData.lastName}`, userData.avatar);
+    }
+  };
+
+  const filteredOnlineUsers = onlineUsers.filter((u) => u._id !== user?.id);
+  const filteredOfflineUsers = offlineUsers.filter((u) => u._id !== user?.id);
+
+  return (
+    <aside className="hidden md:flex flex-col w-72 bg-white border-r h-screen">
+      <div className="p-4 border-b">
+        <h2 className="text-lg font-semibold">Utilisateurs</h2>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4">
+        {loading ? (
+          <div className="flex justify-center py-4">
+            <div className="h-6 w-6 border-2 border-liberte-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredOnlineUsers.length > 0 && (
+              <div>
+                <div className="flex items-center mb-2">
+                  <Badge className="mr-2 bg-green-500 hover:bg-green-600">En ligne</Badge>
+                  <span className="text-xs text-gray-500">{filteredOnlineUsers.length} utilisateur(s)</span>
+                </div>
+                <div className="space-y-2">
+                  {filteredOnlineUsers.map((onlineUser) => (
+                    <div
+                      key={onlineUser._id}
+                      className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md transition-colors"
+                    >
+                      <Link to={`/profile/${onlineUser._id}`} className="flex items-center flex-1">
+                        <div className="relative">
+                          <Avatar>
+                            <AvatarImage src={onlineUser.avatar} />
+                            <AvatarFallback>{getInitials(onlineUser.firstName, onlineUser.lastName)}</AvatarFallback>
+                          </Avatar>
+                          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                        </div>
+                        <div className="ml-3">
+                          <p className="font-medium text-sm">
+                            {onlineUser.firstName} {onlineUser.lastName}
+                          </p>
+                        </div>
+                      </Link>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-gray-500 hover:text-liberte-primary"
+                        onClick={() => handleStartChat(onlineUser)}
+                      >
+                        <MessageCircle size={18} />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {filteredOfflineUsers.length > 0 && (
+              <div>
+                <div className="flex items-center mb-2">
+                  <Badge variant="secondary" className="mr-2">
+                    Hors ligne
+                  </Badge>
+                  <span className="text-xs text-gray-500">{filteredOfflineUsers.length} utilisateur(s)</span>
+                </div>
+                <div className="space-y-2">
+                  {filteredOfflineUsers.map((offlineUser) => (
+                    <div
+                      key={offlineUser._id}
+                      className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md transition-colors"
+                    >
+                      <Link to={`/profile/${offlineUser._id}`} className="flex items-center flex-1">
+                        <div className="relative">
+                          <Avatar>
+                            <AvatarImage src={offlineUser.avatar} />
+                            <AvatarFallback>{getInitials(offlineUser.firstName, offlineUser.lastName)}</AvatarFallback>
+                          </Avatar>
+                          <span className="absolute bottom-0 right-0 w-3 h-3 bg-gray-400 border-2 border-white rounded-full"></span>
+                        </div>
+                        <div className="ml-3">
+                          <p className="font-medium text-sm text-gray-600">
+                            {offlineUser.firstName} {offlineUser.lastName}
+                          </p>
+                        </div>
+                      </Link>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-gray-400 hover:text-liberte-primary"
+                        onClick={() => handleStartChat(offlineUser)}
+                      >
+                        <MessageCircle size={18} />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {filteredOnlineUsers.length === 0 && filteredOfflineUsers.length === 0 && (
+              <p className="text-gray-500 text-sm text-center">Aucun utilisateur disponible pour le moment</p>
+            )}
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+};
+
+export default OnlineUsersList;
+ et enfin enleve le socket.io et simple-peer . Puis dansla page de Profil, il faut que on recupère tous les les liste des personnes amis. et on il y aura des suggestion ajouter des amis, et on aura des bouton, faire demande amis. et en attente d'avale de la personne. et si on clique sur le nom de la personnes. on sera dirriger a une page pour voir tous les renseignement de la personnes et voir tous ce que il a publier, et on peux mettre jaime ou commenter, si ce n'est pas encore notre amis, on voit que ses publication public, mais si c'est deja amis, on vois tous ses publication.   Ajout d'indicateurs de frappe en temps réel

@@ -1,5 +1,74 @@
 [
   {
+    "_id": "m96n2m76dsahz",
+    "user": "m8y54vdpjtpj9",
+    "content": "c'est privé",
+    "images": [
+      "C:/Users/viane/Downloads/Site/Liberte/Liberté 2.5.0/server/uploads/1744004201437-570406275.png"
+    ],
+    "isPrivate": true,
+    "likes": [
+      "m8y54vdpjtpj9"
+    ],
+    "comments": [
+      {
+        "_id": "m96n2v4ufo37g",
+        "user": "m8y54vdpjtpj9",
+        "content": "c'est a moi",
+        "createdAt": "2025-04-07T05:36:53.022Z",
+        "updatedAt": "2025-04-07T05:36:53.022Z"
+      }
+    ],
+    "createdAt": "2025-04-07T05:36:41.442Z",
+    "updatedAt": "2025-04-07T05:36:53.022Z"
+  },
+  {
+    "_id": "m95jcid1vqlua",
+    "user": "m92ffeyiy8nx8",
+    "content": "magnifique",
+    "images": [
+      "C:/Users/viane/Downloads/Site/Liberte/Liberté 2.1.0/server/uploads/1743937478376-530895284.png"
+    ],
+    "isPrivate": true,
+    "likes": [
+      "m92ffeyiy8nx8"
+    ],
+    "comments": [
+      {
+        "_id": "m95jfp3d7dbsa",
+        "user": "m92ffeyiy8nx8",
+        "content": "ok c'est cooll le test\n",
+        "createdAt": "2025-04-06T11:07:07.081Z",
+        "updatedAt": "2025-04-06T11:07:07.081Z"
+      }
+    ],
+    "createdAt": "2025-04-06T11:04:38.390Z",
+    "updatedAt": "2025-04-06T11:07:07.081Z"
+  },
+  {
+    "_id": "m955os2jb9cry",
+    "user": "m8y54vdpjtpj9",
+    "content": "test1",
+    "images": [
+      "C:/Users/viane/Downloads/Site/Liberte/Liberté 2.1.0/server/uploads/1743914536208-273373046.png"
+    ],
+    "isPrivate": true,
+    "likes": [
+      "m8y54vdpjtpj9"
+    ],
+    "comments": [
+      {
+        "_id": "m955pka87zxdw",
+        "user": "m8y54vdpjtpj9",
+        "content": "tres jolie",
+        "createdAt": "2025-04-06T04:42:52.784Z",
+        "updatedAt": "2025-04-06T04:42:52.784Z"
+      }
+    ],
+    "createdAt": "2025-04-06T04:42:16.219Z",
+    "updatedAt": "2025-04-07T03:24:59.701Z"
+  },
+  {
     "_id": "m94k7ploha9nr",
     "user": "m8y54vdpjtpj9",
     "content": "test",
@@ -7,10 +76,20 @@
       "C:/Users/viane/Downloads/Site/Liberte/Liberté 1.9.0/server/uploads/1743878467924-759131197.png"
     ],
     "isPrivate": false,
-    "likes": [],
-    "comments": [],
+    "likes": [
+      "m92ffeyiy8nx8"
+    ],
+    "comments": [
+      {
+        "_id": "m95jc12cxsvrt",
+        "user": "m92ffeyiy8nx8",
+        "content": "très jolie",
+        "createdAt": "2025-04-06T11:04:15.972Z",
+        "updatedAt": "2025-04-06T11:04:15.972Z"
+      }
+    ],
     "createdAt": "2025-04-05T18:41:07.932Z",
-    "updatedAt": "2025-04-05T18:41:07.932Z"
+    "updatedAt": "2025-04-06T11:04:15.972Z"
   },
   {
     "_id": "m94jke1v602h1",
@@ -20,10 +99,12 @@
       "C:/Users/viane/Downloads/Site/Liberte/Liberté 1.9.0/server/uploads/1743877379845-506761069.png"
     ],
     "isPrivate": true,
-    "likes": [],
+    "likes": [
+      "m8y54vdpjtpj9"
+    ],
     "comments": [],
     "createdAt": "2025-04-05T18:22:59.875Z",
-    "updatedAt": "2025-04-05T18:22:59.875Z"
+    "updatedAt": "2025-04-06T15:52:14.278Z"
   },
   {
     "_id": "m94j9baumi3iu",
@@ -116,10 +197,20 @@
     "content": "Merci",
     "images": [],
     "isPrivate": false,
-    "likes": [],
-    "comments": [],
+    "likes": [
+      "m8y54vdpjtpj9"
+    ],
+    "comments": [
+      {
+        "_id": "m95to3jxsr1g9",
+        "user": "m8y54vdpjtpj9",
+        "content": "misy jery mana",
+        "createdAt": "2025-04-06T15:53:35.229Z",
+        "updatedAt": "2025-04-06T15:53:35.229Z"
+      }
+    ],
     "createdAt": "2025-04-03T13:54:37.235Z",
-    "updatedAt": "2025-04-03T13:54:37.235Z"
+    "updatedAt": "2025-04-06T15:53:35.229Z"
   },
   {
     "_id": "m8ycaaob4q751",

@@ -124,6 +124,49 @@ router.get('/user/:userId', auth, async (req, res) => {
   }
 });
 
+// Get chat by ID
+router.get('/:chatId', auth, async (req, res) => {
+  try {
+    const chat = await chats.getById(req.params.chatId);
+    
+    if (!chat) {
+      return res.status(404).json({ message: 'Chat non trouvé' });
+    }
+    
+    // Vérifier si l'utilisateur est un participant
+    if (!chat.participants.includes(req.user._id)) {
+      return res.status(403).json({ message: 'Non autorisé à accéder à ce chat' });
+    }
+    
+    // Obtenir les informations détaillées des utilisateurs
+    const allUsers = await users.getAll();
+    const usersMap = {};
+    allUsers.forEach(user => {
+      usersMap[user._id] = {
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        avatar: user.avatar,
+        isOnline: user.isOnline
+      };
+    });
+    
+    // Formatter le chat avec les informations des utilisateurs
+    const formattedChat = {
+      ...chat,
+      participants: chat.participants.map(p => usersMap[p] || { _id: p }),
+      messages: chat.messages.map(msg => ({
+        ...msg,
+        sender: usersMap[msg.sender] || { _id: msg.sender }
+      }))
+    };
+    
+    res.json(formattedChat);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // ADDED: New route to send a message directly to a user (creates chat if needed)
 router.post('/user/:userId/messages', auth, async (req, res) => {
   try {
@@ -165,7 +208,8 @@ router.post('/user/:userId/messages', auth, async (req, res) => {
         firstName: req.user.firstName,
         lastName: req.user.lastName,
         avatar: req.user.avatar
-      }
+      },
+      chatId: chat._id
     };
     
     res.status(201).json(messageWithUser);
@@ -210,12 +254,171 @@ router.post('/:chatId/messages', auth, async (req, res) => {
         firstName: req.user.firstName,
         lastName: req.user.lastName,
         avatar: req.user.avatar
-      }
+      },
+      chatId: chat._id
     };
     
     res.status(201).json(messageWithUser);
   } catch (error) {
     res.status(400).json({ message: error.message });
+  }
+});
+
+// Indiquer que l'utilisateur est en train de taper
+router.post('/:chatId/typing', auth, async (req, res) => {
+  try {
+    const chat = await chats.getById(req.params.chatId);
+    
+    if (!chat) {
+      return res.status(404).json({ message: 'Chat non trouvé' });
+    }
+    
+    // Vérifier si l'utilisateur est un participant
+    if (!chat.participants.includes(req.user._id)) {
+      return res.status(403).json({ message: 'Non autorisé' });
+    }
+    
+    // Mettre à jour le statut de frappe
+    await chat.updateTypingStatus(req.user._id);
+    
+    res.status(200).json({ message: 'Statut de frappe mis à jour' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Routes pour les appels audio/vidéo
+router.post('/call', auth, async (req, res) => {
+  try {
+    const { receiverId, signal, isVideo } = req.body;
+    
+    if (!receiverId || !signal) {
+      return res.status(400).json({ message: 'Données d\'appel manquantes' });
+    }
+    
+    // Trouver ou créer un chat
+    let chat = await chats.getByParticipants(req.user._id, receiverId);
+    
+    if (!chat) {
+      chat = await chats.create({
+        participants: [req.user._id, receiverId]
+      });
+    }
+    
+    // Enregistrer l'appel
+    const callData = {
+      caller: req.user._id,
+      receiver: receiverId,
+      status: 'missed', // Par défaut, considéré comme manqué jusqu'à ce qu'il soit répondu
+      type: isVideo ? 'video' : 'audio',
+      startTime: new Date()
+    };
+    
+    await chat.addCall(callData);
+    
+    res.status(200).json({ message: 'Appel initié' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.post('/answer-call', auth, async (req, res) => {
+  try {
+    const { callerId, signal } = req.body;
+    
+    if (!callerId || !signal) {
+      return res.status(400).json({ message: 'Données d\'appel manquantes' });
+    }
+    
+    // Trouver le chat
+    const chat = await chats.getByParticipants(req.user._id, callerId);
+    
+    if (!chat) {
+      return res.status(404).json({ message: 'Chat non trouvé' });
+    }
+    
+    // Mettre à jour le dernier appel comme répondu
+    if (chat.calls && chat.calls.length > 0) {
+      const lastCall = chat.calls[chat.calls.length - 1];
+      if (lastCall.receiver.toString() === req.user._id.toString() && 
+          lastCall.caller.toString() === callerId &&
+          lastCall.status === 'missed') {
+        await chat.updateCall(lastCall._id, { status: 'answered' });
+      }
+    }
+    
+    res.status(200).json({ message: 'Appel accepté' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.post('/end-call', auth, async (req, res) => {
+  try {
+    const { peerId } = req.body;
+    
+    if (!peerId) {
+      return res.status(400).json({ message: 'ID du pair manquant' });
+    }
+    
+    // Trouver le chat
+    const chat = await chats.getByParticipants(req.user._id, peerId);
+    
+    if (!chat) {
+      return res.status(404).json({ message: 'Chat non trouvé' });
+    }
+    
+    // Mettre à jour le dernier appel comme terminé
+    if (chat.calls && chat.calls.length > 0) {
+      const lastCall = chat.calls[chat.calls.length - 1];
+      if ((lastCall.receiver.toString() === req.user._id.toString() || 
+           lastCall.caller.toString() === req.user._id.toString()) &&
+          (lastCall.receiver.toString() === peerId.toString() || 
+           lastCall.caller.toString() === peerId.toString()) &&
+          (lastCall.status === 'answered' || lastCall.status === 'missed')) {
+        await chat.updateCall(lastCall._id, { 
+          endTime: new Date()
+        });
+      }
+    }
+    
+    res.status(200).json({ message: 'Appel terminé' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.post('/reject-call', auth, async (req, res) => {
+  try {
+    const { callerId } = req.body;
+    
+    if (!callerId) {
+      return res.status(400).json({ message: 'ID de l\'appelant manquant' });
+    }
+    
+    // Trouver le chat
+    const chat = await chats.getByParticipants(req.user._id, callerId);
+    
+    if (!chat) {
+      return res.status(404).json({ message: 'Chat non trouvé' });
+    }
+    
+    // Mettre à jour le dernier appel comme rejeté
+    if (chat.calls && chat.calls.length > 0) {
+      const lastCall = chat.calls[chat.calls.length - 1];
+      if (lastCall.receiver.toString() === req.user._id.toString() && 
+          lastCall.caller.toString() === callerId &&
+          lastCall.status === 'missed') {
+        await chat.updateCall(lastCall._id, { 
+          status: 'rejected',
+          endTime: new Date()
+        });
+      }
+    }
+    
+    res.status(200).json({ message: 'Appel rejeté' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 
@@ -226,31 +429,25 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
       return res.status(400).json({ message: 'Aucun fichier téléchargé' });
     }
     
-    const chatId = req.body.chatId;
+    const receiverId = req.body.receiverId;
     
-    // Get chat
-    const chat = await chats.getById(chatId);
-    if (!chat) {
-      // If the chatId is a user ID, try to create/get a chat with that user
-      const user = await users.getById(chatId);
-      if (!user) {
-        return res.status(404).json({ message: 'Chat ou utilisateur non trouvé' });
-      }
-      
-      let existingChat = await chats.getByParticipants(req.user._id, chatId);
-      
-      if (!existingChat) {
-        existingChat = await chats.create({
-          participants: [req.user._id, chatId]
-        });
-      }
-      
-      chat = existingChat;
+    if (!receiverId) {
+      return res.status(400).json({ message: 'ID du destinataire manquant' });
     }
     
-    // Vérifier si l'utilisateur est un participant
-    if (!chat.participants.includes(req.user._id)) {
-      return res.status(403).json({ message: 'Non autorisé à envoyer des messages dans ce chat' });
+    // Vérifier si l'utilisateur existe
+    const receiver = await users.getById(receiverId);
+    if (!receiver) {
+      return res.status(404).json({ message: 'Destinataire non trouvé' });
+    }
+    
+    // Trouver ou créer un chat
+    let chat = await chats.getByParticipants(req.user._id, receiverId);
+    
+    if (!chat) {
+      chat = await chats.create({
+        participants: [req.user._id, receiverId]
+      });
     }
     
     // Determine file type
@@ -265,6 +462,7 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
       fileType = 'audio';
     }
     
+    // Important: Fix the URL path to make it accessible from frontend
     const filePath = `/uploads/${req.file.filename}`;
     
     // Create message with attachment
@@ -289,7 +487,8 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
         firstName: req.user.firstName,
         lastName: req.user.lastName,
         avatar: req.user.avatar
-      }
+      },
+      chatId: chat._id
     });
     
   } catch (error) {

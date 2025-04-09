@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
 
@@ -8,6 +9,10 @@ interface User {
   lastName: string;
   email: string;
   avatar?: string;
+  location?: string;
+  relationship?: string;
+  lookingFor?: string;
+  bio?: string;
 }
 
 interface AuthContextType {
@@ -17,6 +22,7 @@ interface AuthContextType {
   register: (userData: RegisterData) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
+  setUser: (user: User) => void;
 }
 
 interface RegisterData {
@@ -62,7 +68,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             firstName: response.data.user.firstName,
             lastName: response.data.user.lastName,
             email: response.data.user.email,
-            avatar: response.data.user.avatar
+            avatar: response.data.user.avatar,
+            location: response.data.user.location,
+            relationship: response.data.user.relationship,
+            lookingFor: response.data.user.lookingFor,
+            bio: response.data.user.bio
           });
         }
       } catch (error: any) {
@@ -191,7 +201,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     login,
     register,
     logout,
-    isAuthenticated: !!user
+    isAuthenticated: !!user,
+    setUser
   };
 
   return (

@@ -1,55 +1,22 @@
+// Importation du composant AuthProvider depuis le dossier contexts/AuthContext
+// Ce composant fournit le contexte d'authentification à toute l'application
+import { AuthProvider } from './contexts/AuthContext';
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import Home from "./pages/Home";
-import Profile from "./pages/Profile";
-import NotFound from "./pages/NotFound";
-import About from "./pages/About";
-import Privacy from "./pages/Privacy";
-import Terms from "./pages/Terms";
-import Contact from "./pages/Contact";
-import { AuthProvider } from "./contexts/AuthContext";
-import { ChatProvider } from "./contexts/ChatContext";
+// Importation du composant principal étendu de l'application
+// Celui-ci contient les routes, les providers supplémentaires (ex: ChatProvider), etc.
+import AppExtended from './AppExtended';
 
-const queryClient = new QueryClient();
-
+// Définition du composant racine App
 const App = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <ChatProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/home" element={<Home />} />
-                <Route path="/profile/:id" element={<Profile />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/privacy" element={<Privacy />} />
-                <Route path="/terms" element={<Terms />} />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </ChatProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    // Encapsulation de toute l'application dans le contexte AuthProvider
+    // Cela permet à tous les composants enfants d’accéder à l’état d’authentification (utilisateur connecté, etc.)
+    <AuthProvider>
+      {/* AppExtended contient les routes et autres contextes (comme le chat) */}
+      <AppExtended />
+    </AuthProvider>
   );
 };
 
+// Exportation du composant App pour qu’il soit utilisé dans le fichier index.tsx
 export default App;

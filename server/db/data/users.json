@@ -13,13 +13,14 @@
     "friendRequests": {
       "sent": [],
       "received": [
-        "m92dgs8wvlxx7"
+        "m92dgs8wvlxx7",
+        "m92ffeyiy8nx8"
       ]
     },
     "isOnline": true,
-    "lastActive": "2025-04-06T04:08:54.436Z",
+    "lastActive": "2025-04-08T13:10:59.113Z",
     "createdAt": "2025-04-01T06:52:24.157Z",
-    "updatedAt": "2025-04-06T04:08:54.437Z"
+    "updatedAt": "2025-04-08T13:10:59.118Z"
   },
   {
     "_id": "m8y5zanjd0bag",
@@ -30,7 +31,8 @@
     "dateOfBirth": "1978-05-25",
     "gender": "male",
     "friends": [
-      "m8y54vdpjtpj9"
+      "m8y54vdpjtpj9",
+      "m92ffeyiy8nx8"
     ],
     "friendRequests": {
       "sent": [
@@ -39,9 +41,9 @@
       "received": []
     },
     "isOnline": true,
-    "lastActive": "2025-04-06T04:22:24.317Z",
+    "lastActive": "2025-04-06T18:15:20.196Z",
     "createdAt": "2025-04-01T07:16:03.631Z",
-    "updatedAt": "2025-04-06T04:22:24.317Z"
+    "updatedAt": "2025-04-06T18:15:20.204Z"
   },
   {
     "_id": "m8yc02jlh8oie",
@@ -90,16 +92,23 @@
     "dateOfBirth": "2000-12-12T00:00:00.000Z",
     "gender": "female",
     "email": "beau@yahoo.fr",
-    "password": "$2b$10$PEeu85k538VlatlpRubgCuj.Zf6lgWcAxehXYdpkDfZ1L038OO4ga",
-    "isOnline": false,
-    "friends": [],
+    "password": "azerty123",
+    "isOnline": true,
+    "friends": [
+      "m8y5zanjd0bag",
+      "m92ffeyiy8nx8"
+    ],
     "friendRequests": {
-      "sent": [],
-      "received": []
+      "sent": [
+        "m8y54vdpjtpj9"
+      ],
+      "received": [
+        "m92ffeyiy8nx8"
+      ]
     },
-    "lastActive": "2025-04-04T06:54:18.514Z",
+    "lastActive": "2025-04-06T11:14:36.519Z",
     "createdAt": "2025-04-04T06:51:36.954Z",
-    "updatedAt": "2025-04-04T06:54:18.514Z"
+    "updatedAt": "2025-04-06T11:14:36.520Z"
   },
   {
     "_id": "m942g0cy3db3a",

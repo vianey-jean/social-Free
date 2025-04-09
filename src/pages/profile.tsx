@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
-import PostFeed from "@/components/PostFeed";
+import PostFeedLister from "@/components/PostFeedLister";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import axios from "axios";
@@ -54,33 +53,9 @@ const Profile = () => {
         setFriendshipStatus(response.data.friendshipStatus);
       } catch (error) {
         console.error("Failed to fetch user profile:", error);
-        
-        // Pour les besoins de la démo, créons un profil fictif
-        if (id) {
-          // Si l'ID est celui de l'utilisateur connecté
-          if (user && id === user.id) {
-            setProfileUser({
-              _id: user.id,
-              firstName: user.firstName,
-              lastName: user.lastName,
-              avatar: user.avatar,
-              isOnline: true
-            });
-          } else {
-            // Sinon, créer un utilisateur fictif
-            setProfileUser({
-              _id: id,
-              firstName: ["John", "Jane", "Alice", "Bob", "Charlie"][Math.floor(Math.random() * 5)],
-              lastName: ["Doe", "Smith", "Johnson", "Brown", "Wilson"][Math.floor(Math.random() * 5)],
-              isOnline: Math.random() > 0.5
-            });
-            setFriendshipStatus(["none", "friends", "pending_sent", "pending_received"][Math.floor(Math.random() * 4)] as FriendshipStatus);
-          }
-        }
-        
         toast({
           title: "Erreur",
-          description: "Impossible de charger le profil de l'utilisateur. Affichage des données de démonstration.",
+          description: "Impossible de charger le profil de l'utilisateur.",
           variant: "destructive",
         });
       } finally {
@@ -88,7 +63,7 @@ const Profile = () => {
       }
     };
     
-    if (isAuthenticated) {
+    if (isAuthenticated && id) {
       fetchUserProfile();
     }
   }, [id, isAuthenticated, user, toast]);
@@ -275,7 +250,7 @@ const Profile = () => {
       <div className="flex-1 p-6">
         <div className="max-w-2xl mx-auto">
           <h2 className="text-xl font-bold mb-4">Publications</h2>
-          <PostFeed userId={profileUser._id} refreshTrigger={refreshPosts} />
+          <PostFeedLister userId={profileUser._id} refreshTrigger={refreshPosts} />
         </div>
       </div>
     </div>
