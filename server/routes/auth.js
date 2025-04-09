@@ -1,191 +1,200 @@
-
 const express = require('express');
-const jwt = require('jsonwebtoken');
+const router = express.Router();
 const { users } = require('../db');
 const auth = require('../middleware/auth');
-const router = express.Router();
+const jwt = require('jsonwebtoken');
 
-// Fonction auxiliaire pour générer un token
-const generateToken = (userId) => {
-  const secret = process.env.JWT_SECRET || 'your-fallback-secret-key-for-development';
-  console.log(`Génération d'un token pour l'utilisateur ${userId} avec la clé secrète "${secret.substr(0, 3)}..."`);
-  return jwt.sign({ id: userId }, secret, {
-    expiresIn: '7d'
-  });
-};
-
-// Enregistrer un nouvel utilisateur
-router.post('/register', async (req, res) => {
-  try {
-    const { firstName, lastName, email, password, dateOfBirth, gender } = req.body;
-    
-    console.log('Tentative d\'inscription pour:', email);
-    
-    // Vérifier si l'utilisateur existe déjà
-    const existingUser = await users.getByEmail(email);
-    if (existingUser) {
-      return res.status(400).json({ message: 'Cet utilisateur existe déjà' });
-    }
-    
-    // Créer un nouvel utilisateur
-    const newUser = await users.create({
-      firstName,
-      lastName,
-      email,
-      password,
-      dateOfBirth,
-      gender
-    });
-    
-    // Générer un token
-    const token = generateToken(newUser._id);
-    
-    // Définir le cookie
-    res.cookie('jwt', token, {
-      httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production'
-    });
-    
-    console.log('Utilisateur inscrit avec succès:', newUser._id);
-    
-    res.status(201).json({
-      message: 'Utilisateur inscrit avec succès',
-      user: newUser,
-      token
-    });
-  } catch (error) {
-    console.error('Erreur d\'inscription:', error);
-    res.status(400).json({ message: error.message });
-  }
-});
-
-// Connecter un utilisateur
+// Login
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    console.log('Tentative de connexion pour:', email);
+    console.log("Login attempt with:", email);
+    console.log("Password provided:", password ? "Yes" : "No");
     
-    // Trouver l'utilisateur
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email et mot de passe requis' });
+    }
+    
     const user = await users.getByEmail(email);
+    
     if (!user) {
+      console.log("User not found with email:", email);
       return res.status(400).json({ message: 'Email ou mot de passe invalide' });
     }
     
-    // Vérifier le mot de passe
-    const isMatch = await users.comparePassword(user._id, password);
-    if (!isMatch) {
+    console.log("User found:", user._id);
+    console.log("Stored password:", user.password);
+    console.log("Provided password:", password);
+    
+    // Simple password comparison - no hashing
+    if (password !== user.password) {
+      console.log("Invalid password for user:", email);
       return res.status(400).json({ message: 'Email ou mot de passe invalide' });
     }
     
-    // Mettre à jour le statut en ligne
-    await users.update(user._id, {
-      isOnline: true,
-      lastActive: new Date()
-    });
+    // Update online status
+    await users.update(user._id, { isOnline: true });
     
-    // Générer un token
-    const token = generateToken(user._id);
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET || 'your-fallback-secret-key-for-development',
+      { expiresIn: '7d' }
+    );
     
-    // Définir le cookie
+    // Set cookie
     res.cookie('jwt', token, {
       httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production'
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      sameSite: 'lax' 
     });
     
-    console.log('Utilisateur connecté avec succès:', user._id);
+    // Send response without password
+    const userResponse = { ...user };
+    delete userResponse.password;
     
-    // Récupérer l'utilisateur mis à jour
-    const updatedUser = await users.getById(user._id);
+    console.log("Login successful for:", email);
     
-    res.json({
-      message: 'Connexion réussie',
-      user: updatedUser,
+    res.json({ 
+      user: userResponse,
       token
     });
   } catch (error) {
-    console.error('Erreur de connexion:', error);
-    res.status(400).json({ message: error.message });
+    console.error('Login error:', error.message);
+    res.status(500).json({ message: error.message });
   }
 });
 
-// Déconnecter un utilisateur
-router.post('/logout', auth, async (req, res) => {
+// Registration
+router.post('/register', async (req, res) => {
   try {
-    // Mettre à jour le statut en ligne
-    await users.update(req.user._id, {
-      isOnline: false,
-      lastActive: new Date()
+    const { firstName, lastName, dateOfBirth, gender, email, password } = req.body;
+    
+    console.log("Registration attempt with:", email);
+    
+    // Validate required fields
+    if (!firstName || !lastName || !dateOfBirth || !gender || !email || !password) {
+      return res.status(400).json({ message: 'Tous les champs sont requis' });
+    }
+    
+    // Check if email already exists
+    const existingUser = await users.getByEmail(email);
+    
+    if (existingUser) {
+      console.log("Email already exists:", email);
+      return res.status(400).json({ message: 'Cet email existe déjà' });
+    }
+    
+    // Create new user without hashing password
+    const newUser = await users.create({
+      firstName,
+      lastName,
+      dateOfBirth: new Date(dateOfBirth),
+      gender,
+      email,
+      password: password, // Store plain text password
+      isOnline: true
     });
     
-    // Effacer le cookie
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: newUser._id },
+      process.env.JWT_SECRET || 'your-fallback-secret-key-for-development',
+      { expiresIn: '7d' }
+    );
+    
+    // Set cookie
+    res.cookie('jwt', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+    
+    // Send response without password
+    const userResponse = { ...newUser };
+    delete userResponse.password;
+    
+    console.log("Registration successful for:", email);
+    
+    res.status(201).json({ 
+      user: userResponse,
+      token
+    });
+  } catch (error) {
+    console.error('Registration error:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Logout
+router.post('/logout', auth, async (req, res) => {
+  try {
+    // Update online status
+    await users.update(req.user._id, { isOnline: false, lastActive: new Date() });
+    
+    // Clear cookie
     res.clearCookie('jwt');
     
     res.json({ message: 'Déconnexion réussie' });
   } catch (error) {
-    console.error('Erreur de déconnexion:', error);
+    console.error('Logout error:', error.message);
     res.status(500).json({ message: error.message });
   }
 });
 
-// Obtenir l'utilisateur actuel
+// Get current user
 router.get('/me', auth, async (req, res) => {
-  res.json({ user: req.user });
+  try {
+    // User is already verified and retrieved by the auth middleware
+    // and is available in req.user
+    console.log("Authenticated user:", req.user._id);
+    res.json({ user: req.user });
+  } catch (error) {
+    console.error('Profile retrieval error:', error.message);
+    res.status(500).json({ message: error.message });
+  }
 });
 
-// Demande de réinitialisation de mot de passe
-router.post('/forgot-password', async (req, res) => {
+// Check if email exists
+router.post('/check-email', async (req, res) => {
   try {
     const { email } = req.body;
     
-    console.log('Demande de réinitialisation de mot de passe pour:', email);
-    
-    const user = await users.getByEmail(email);
-    if (!user) {
-      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    if (!email) {
+      return res.status(400).json({ message: 'Email requis' });
     }
     
-    // Générer un token de réinitialisation (dans une vraie application, l'envoyer par email)
-    const resetToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'your-fallback-secret-key-for-development', { expiresIn: '1h' });
+    const user = await users.getByEmail(email);
     
-    // Dans une vraie application, envoyer un email avec le lien de réinitialisation
-    // Pour la démonstration, renvoyer simplement le token
-    res.json({
-      message: 'Email de réinitialisation de mot de passe envoyé',
-      resetToken // Dans un environnement de production, supprimer ceci et envoyer via email
-    });
+    res.json({ exists: !!user });
   } catch (error) {
-    console.error('Erreur de demande de réinitialisation de mot de passe:', error);
     res.status(500).json({ message: error.message });
   }
 });
 
-// Réinitialiser le mot de passe
-router.post('/reset-password', async (req, res) => {
+// Reset password directly (without token)
+router.post('/reset-password-direct', async (req, res) => {
   try {
-    const { token, password } = req.body;
+    const { email, newPassword } = req.body;
     
-    // Vérifier le token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-fallback-secret-key-for-development');
+    if (!email || !newPassword) {
+      return res.status(400).json({ message: 'Email et nouveau mot de passe requis' });
+    }
     
-    const user = await users.getById(decoded.id);
+    const user = await users.getByEmail(email);
+    
     if (!user) {
       return res.status(404).json({ message: 'Utilisateur non trouvé' });
     }
     
-    // Mettre à jour le mot de passe
-    await users.update(user._id, { password });
+    // Update password without hashing
+    await users.update(user._id, { password: newPassword });
     
-    console.log('Réinitialisation du mot de passe réussie pour l\'utilisateur:', user._id);
-    
-    res.json({ message: 'Réinitialisation du mot de passe réussie' });
+    res.json({ message: 'Mot de passe réinitialisé avec succès' });
   } catch (error) {
-    console.error('Erreur de réinitialisation de mot de passe:', error);
-    res.status(400).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 });
 

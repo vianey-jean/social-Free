@@ -1,89 +1,94 @@
 
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const cookieParser = require('cookie-parser');
 const path = require('path');
 const { initDB } = require('./db');
+const cookieParser = require('cookie-parser');
+const fs = require('fs');
+
+// Import routes
 const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
-const postRoutes = require('./routes/posts');
-const friendRoutes = require('./routes/friends');
+const usersRoutes = require('./routes/users');
+const postsRoutes = require('./routes/posts');
+const friendsRoutes = require('./routes/friends');
 const chatRoutes = require('./routes/chat');
 
+// Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Définir les origines autorisées
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:8080',
-];
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log('Created uploads directory:', uploadsDir);
+}
 
-// Configuration CORS améliorée
-app.use(cors({
-  origin: function(origin, callback) {
-    // Autoriser les requêtes sans origine (comme les applications mobiles ou les requêtes curl)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.log('CORS bloqué pour l\'origine:', origin);
-      callback(null, false);
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
-
-// Appliquer les middlewares
-app.use(express.json());
-app.use(cookieParser());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Initialiser la base de données locale
-(async () => {
-  try {
-    await initDB();
-    console.log('Base de données initialisée');
-  } catch (error) {
-    console.error('Erreur d\'initialisation de la base de données:', error);
-    process.exit(1);
-  }
-})();
-
-// Routes API
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/posts', postRoutes);
-app.use('/api/friends', friendRoutes);
-app.use('/api/chat', chatRoutes);
-
-// Tests pour vérifier l'activité du serveur
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok', message: 'Le serveur fonctionne correctement' });
+// Initialize database
+initDB().then(() => {
+  console.log('Database initialized');
+}).catch((err) => {
+  console.error('Database initialization error:', err);
 });
 
-// Middleware de journalisation des requêtes
+// Middleware
+app.use(cors({
+  origin: ['http://localhost:8080', 'http://localhost:3000', 'https://liberte-frontend.herokuapp.com'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cache-Control']
+}));
+app.use(express.json());
+app.use(cookieParser());
+app.use(express.urlencoded({ extended: true }));
+
+// Serve static files - make sure the path is correct and accessible
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Log all requests for debugging
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  console.log('Request headers:', req.headers);
+  if (req.method === 'POST' || req.method === 'PUT') {
+    console.log('Request body:', req.body);
+  }
   next();
 });
 
-// Gestionnaire d'erreurs
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Une erreur s\'est produite sur le serveur' });
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/posts', postsRoutes);
+app.use('/api/friends', friendsRoutes);
+app.use('/api/chat', chatRoutes);
+
+// Test route
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'Liberté API is functional' });
 });
 
-// Démarrer le serveur uniquement si ce n'est pas en mode test
-if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    console.log(`Serveur en cours d'exécution sur le port ${PORT}`);
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok',
+    message: 'Server is running'
   });
-}
+});
 
-// Exporter pour les tests
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Global error:', err);
+  res.status(500).json({ message: 'Server error', error: err.message });
+});
+
+// Default route to check server status
+app.get('/', (req, res) => {
+  res.send('Liberté server is operational');
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`Server started on port ${PORT}`);
+});
+
 module.exports = app;

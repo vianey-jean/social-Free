@@ -13,9 +13,23 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
+import { 
+  Carousel, 
+  CarouselContent, 
+  CarouselItem, 
+  CarouselNext, 
+  CarouselPrevious 
+} from "@/components/ui/carousel";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
-const API_URL = "http://localhost:3001/api";
+const API_URL = window.location.hostname === 'localhost' 
+  ? "http://localhost:3001/api" 
+  : "https://liberte-backend.herokuapp.com/api";
 
 interface PostProps {
   post: {
@@ -44,32 +58,74 @@ interface PostProps {
       createdAt: string;
     }[];
   };
+  onLikeToggle?: (postId: string) => void;
 }
 
-const Post = ({ post }: PostProps) => {
+const Post = ({ post, onLikeToggle }: PostProps) => {
   const { isAuthenticated, user } = useAuth();
+  const { toast } = useToast();
   const [liked, setLiked] = useState(post.liked);
   const [likesCount, setLikesCount] = useState(post.likes);
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState(post.comments);
+  const [viewLikes, setViewLikes] = useState(false);
+  const [likesUsers, setLikesUsers] = useState<{id: string, firstName: string, lastName: string, avatar?: string}[]>([]);
+  const [loadingLikes, setLoadingLikes] = useState(false);
   
-  const getInitials = (firstName: string, lastName: string) => {
+  const getInitials = (firstName?: string, lastName?: string) => {
+    if (!firstName || !lastName) {
+      return "?";
+    }
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
   
+  // Helper function to format image URLs
+  const formatImageUrl = (url: string): string => {
+    if (!url) return '';
+    
+    // If it's already an absolute URL
+    if (url.startsWith('http')) return url;
+    
+    // If it's a relative URL without the /api prefix
+    if (url.startsWith('/uploads')) {
+      return `${API_URL}${url}`;
+    }
+    
+    return url;
+  };
+  
   const handleLike = async () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      toast({
+        title: "Non connecté",
+        description: "Vous devez être connecté pour aimer une publication",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
-      await axios.post(`${API_URL}/posts/${post.id}/like`, {}, { withCredentials: true });
-      setLiked(!liked);
-      setLikesCount(liked ? likesCount - 1 : likesCount + 1);
+      await axios.post(`${API_URL}/posts/${post.id}/like`, {}, { 
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+      });
+      const newLikedState = !liked;
+      setLiked(newLikedState);
+      setLikesCount(newLikedState ? likesCount + 1 : likesCount - 1);
+      
+      if (onLikeToggle) {
+        onLikeToggle(post.id);
+      }
     } catch (error) {
       console.error("Failed to like post:", error);
-      // For demo, we'll just toggle the like state
-      setLiked(!liked);
-      setLikesCount(liked ? likesCount - 1 : likesCount + 1);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'aimer cette publication pour le moment",
+        variant: "destructive",
+      });
     }
   };
   
@@ -78,16 +134,26 @@ const Post = ({ post }: PostProps) => {
     
     try {
       const response = await axios.post(
-        `${API_URL}/posts/${post.id}/comments`,
+        `${API_URL}/posts/${post.id}/comment`,
         { content: commentText },
-        { withCredentials: true }
+        { 
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json'
+          },
+        }
       );
       
       setComments([...comments, response.data]);
       setCommentText("");
     } catch (error) {
       console.error("Failed to add comment:", error);
-      // For demo, we'll just add the comment locally
+      toast({
+        title: "Erreur",
+        description: "Impossible d'ajouter un commentaire pour le moment",
+        variant: "destructive",
+      });
+      
       if (user) {
         const newComment = {
           id: Date.now().toString(),
@@ -110,6 +176,40 @@ const Post = ({ post }: PostProps) => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  };
+  
+  const fetchLikes = async () => {
+    setLoadingLikes(true);
+    try {
+      const response = await axios.get(`${API_URL}/posts/${post.id}/likes`, {
+        withCredentials: true
+      });
+      setLikesUsers(response.data);
+    } catch (error) {
+      console.error("Failed to fetch likes:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les personnes qui aiment cette publication",
+        variant: "destructive",
+      });
+      
+      // Fallback data for demo
+      setLikesUsers(Array(likesCount).fill(null).map((_, i) => ({
+        id: `user-${i}`,
+        firstName: ["John", "Jane", "Alice", "Bob", "Charlie"][Math.floor(Math.random() * 5)],
+        lastName: ["Doe", "Smith", "Johnson", "Brown", "Wilson"][Math.floor(Math.random() * 5)],
+        avatar: Math.random() > 0.5 ? `https://i.pravatar.cc/150?img=${i+1}` : undefined
+      })));
+    } finally {
+      setLoadingLikes(false);
+    }
+  };
+  
+  const handleViewLikes = () => {
+    if (likesCount > 0) {
+      fetchLikes();
+      setViewLikes(true);
+    }
   };
   
   return (
@@ -147,24 +247,46 @@ const Post = ({ post }: PostProps) => {
         
         <p className="mb-4">{post.content}</p>
         
-        {post.images.length > 0 && (
+        {post.images && post.images.length > 0 && (
           <div className="mb-4">
             {post.images.length === 1 ? (
-              <img 
-                src={post.images[0]} 
-                alt="Post" 
-                className="w-full rounded-md object-cover max-h-96"
-              />
+              <Dialog>
+                <DialogTrigger asChild>
+                  <img 
+                    src={formatImageUrl(post.images[0])} 
+                    alt="Post" 
+                    className="w-full rounded-md object-cover max-h-96 cursor-pointer"
+                  />
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-3xl">
+                  <img 
+                    src={formatImageUrl(post.images[0])} 
+                    alt="Post" 
+                    className="w-full object-contain"
+                  />
+                </DialogContent>
+              </Dialog>
             ) : (
               <Carousel className="w-full">
                 <CarouselContent>
                   {post.images.map((image, index) => (
                     <CarouselItem key={index}>
-                      <img 
-                        src={image} 
-                        alt={`Post image ${index + 1}`} 
-                        className="w-full rounded-md object-cover max-h-96"
-                      />
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <img 
+                            src={formatImageUrl(image)} 
+                            alt={`Post image ${index + 1}`} 
+                            className="w-full rounded-md object-cover max-h-96 cursor-pointer"
+                          />
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-3xl">
+                          <img 
+                            src={formatImageUrl(image)} 
+                            alt={`Post image ${index + 1}`} 
+                            className="w-full object-contain"
+                          />
+                        </DialogContent>
+                      </Dialog>
                     </CarouselItem>
                   ))}
                 </CarouselContent>
@@ -176,10 +298,49 @@ const Post = ({ post }: PostProps) => {
         )}
         
         <div className="flex items-center justify-between pt-2 border-t">
-          <div className="flex items-center gap-1 text-sm text-gray-500">
-            <Heart className={`h-4 w-4 ${liked ? 'fill-liberte-error text-liberte-error' : ''}`} />
-            <span>{likesCount} J'aime</span>
-          </div>
+          <Dialog open={viewLikes} onOpenChange={setViewLikes}>
+            <DialogTrigger asChild>
+              <button 
+                onClick={handleViewLikes}
+                className="flex items-center gap-1 text-sm text-gray-500 hover:underline"
+                disabled={likesCount === 0}
+              >
+                <Heart className={`h-4 w-4 ${liked ? 'fill-red-500 text-red-500' : ''}`} />
+                <span>{likesCount} J'aime</span>
+              </button>
+            </DialogTrigger>
+            <DialogContent>
+              <h3 className="text-lg font-semibold mb-4 flex items-center">
+                <Heart className="h-5 w-5 mr-2 text-liberte-primary" /> 
+                Personnes qui aiment cette publication
+              </h3>
+              {loadingLikes ? (
+                <div className="flex justify-center p-4">
+                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-e-transparent align-[-0.125em] text-liberte-primary"></div>
+                </div>
+              ) : (
+                <div className="max-h-96 overflow-y-auto space-y-3">
+                  {likesUsers.length > 0 ? (
+                    likesUsers.map(user => (
+                      <Link 
+                        key={user.id} 
+                        to={`/profile/${user.id}`}
+                        className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-md"
+                      >
+                        <Avatar>
+                          <AvatarImage src={user.avatar} />
+                          <AvatarFallback>{getInitials(user.firstName, user.lastName)}</AvatarFallback>
+                        </Avatar>
+                        <span>{user.firstName} {user.lastName}</span>
+                      </Link>
+                    ))
+                  ) : (
+                    <p className="text-center text-gray-500">Aucun utilisateur n'a aimé cette publication</p>
+                  )}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
           
           <div className="flex items-center gap-1 text-sm text-gray-500">
             <MessageCircle className="h-4 w-4" />
@@ -194,7 +355,6 @@ const Post = ({ post }: PostProps) => {
           size="sm"
           className="flex-1 gap-1"
           onClick={handleLike}
-          disabled={!isAuthenticated}
         >
           <Heart className={`h-4 w-4 ${liked ? 'fill-white' : ''}`} />
           {liked ? "J'aime" : "J'aime"}

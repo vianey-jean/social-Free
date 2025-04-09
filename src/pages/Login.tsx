@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
+import { Eye, EyeOff } from "lucide-react";
 
 const Login = () => {
   const { login, isAuthenticated, loading } = useAuth();
@@ -16,6 +17,7 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   
   useEffect(() => {
@@ -51,7 +53,12 @@ const Login = () => {
     
     try {
       console.log("Attempting to login with email:", email);
-      await login(email, password);
+      console.log("Password:", password);
+      
+      // Ensure email is trimmed
+      const trimmedEmail = email.trim();
+      
+      await login(trimmedEmail, password);
       
       toast({
         title: "Connexion réussie",
@@ -70,6 +77,10 @@ const Login = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
   };
   
   if (loading) {
@@ -114,14 +125,23 @@ const Login = () => {
                   Mot de passe oublié?
                 </Link>
               </div>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={errors.password ? "border-liberte-error" : ""}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={errors.password ? "border-liberte-error" : ""}
+                />
+                <button 
+                  type="button"
+                  onClick={togglePasswordVisibility}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
               {errors.password && (
                 <p className="text-sm text-liberte-error">{errors.password}</p>
               )}

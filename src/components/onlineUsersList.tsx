@@ -1,148 +1,190 @@
 
 import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import axios from "axios";
-import { MessageCircle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
+import { MessageCircle } from "lucide-react";
+import { useChat } from "@/contexts/ChatContext";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import axios from "axios";
 
-interface User {
-  id: string;
+const API_URL = window.location.hostname === 'localhost' 
+  ? "http://localhost:3001/api" 
+  : "https://liberte-backend.herokuapp.com/api";
+
+interface OnlineUser {
+  _id: string;
   firstName: string;
   lastName: string;
   avatar?: string;
   isOnline: boolean;
-  isFriend: boolean;
 }
 
-const API_URL = "http://localhost:3001/api";
-
 const OnlineUsersList = () => {
-  const [users, setUsers] = useState<User[]>([]);
+  const { isAuthenticated, user } = useAuth();
+  const { openChat } = useChat();
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
+  const [offlineUsers, setOfflineUsers] = useState<OnlineUser[]>([]);
   const [loading, setLoading] = useState(true);
-
+  
   useEffect(() => {
     const fetchUsers = async () => {
+      if (!isAuthenticated) return;
+      
       try {
-        const response = await axios.get(`${API_URL}/users`, {
+        setLoading(true);
+        const response = await axios.get(`${API_URL}/users/online`, {
           withCredentials: true
         });
-        setUsers(response.data);
+        
+        if (response.data) {
+          // Filter users into online and offline
+          const online: OnlineUser[] = [];
+          const offline: OnlineUser[] = [];
+          
+          response.data.forEach((userData: OnlineUser) => {
+            if (userData.isOnline) {
+              online.push(userData);
+            } else {
+              offline.push(userData);
+            }
+          });
+          
+          setOnlineUsers(online);
+          setOfflineUsers(offline);
+        }
       } catch (error) {
         console.error("Failed to fetch users:", error);
-        // For demo purposes, let's show mock data
-        setUsers([
-          { id: "1", firstName: "John", lastName: "Doe", isOnline: true, isFriend: true },
-          { id: "2", firstName: "Jane", lastName: "Smith", isOnline: true, isFriend: true },
-          { id: "3", firstName: "Alice", lastName: "Johnson", isOnline: false, isFriend: true },
-          { id: "4", firstName: "Bob", lastName: "Brown", isOnline: false, isFriend: true },
-          { id: "5", firstName: "Charlie", lastName: "Wilson", isOnline: true, isFriend: false },
-          { id: "6", firstName: "Diana", lastName: "Parker", isOnline: false, isFriend: false },
-        ]);
       } finally {
         setLoading(false);
       }
     };
-
+    
     fetchUsers();
-  }, []);
-
+    
+    // Refresh online users every 30 seconds
+    const interval = setInterval(fetchUsers, 30000);
+    
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+  
+  if (!isAuthenticated) {
+    return null;
+  }
+  
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
-
-  const sortedUsers = [...users].sort((a, b) => {
-    // First sort by online status
-    if (a.isOnline && !b.isOnline) return -1;
-    if (!a.isOnline && b.isOnline) return 1;
-    
-    // Then by friend status
-    if (a.isFriend && !b.isFriend) return -1;
-    if (!a.isFriend && b.isFriend) return 1;
-    
-    // Finally by name
-    return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
-  });
-
-  const friendsList = sortedUsers.filter(user => user.isFriend);
-  const allUsers = sortedUsers;
-
+  
+  const handleStartChat = (userData: OnlineUser) => {
+    openChat(userData._id, `${userData.firstName} ${userData.lastName}`, userData.avatar);
+  };
+  
+  // Filter out current user
+  const filteredOnlineUsers = onlineUsers.filter(onlineUser => onlineUser._id !== user?.id);
+  const filteredOfflineUsers = offlineUsers.filter(offlineUser => offlineUser._id !== user?.id);
+  
   return (
-    <div className="w-64 h-screen border-r bg-white p-4">
-      <h2 className="text-lg font-semibold mb-4">Personnes</h2>
+    <aside className="hidden md:flex flex-col w-72 bg-white border-r h-screen">
+      <div className="p-4 border-b">
+        <h2 className="text-lg font-semibold">Utilisateurs</h2>
+      </div>
       
-      <Tabs defaultValue="friends">
-        <TabsList className="w-full mb-4">
-          <TabsTrigger value="friends" className="flex-1">Amis</TabsTrigger>
-          <TabsTrigger value="all" className="flex-1">Tous</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="friends" className="mt-0">
-          <ScrollArea className="h-[calc(100vh-160px)]">
-            {loading ? (
-              <div className="flex justify-center p-4">Chargement...</div>
-            ) : friendsList.length > 0 ? (
-              <div className="space-y-2">
-                {friendsList.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between p-2 rounded-md hover:bg-gray-100">
-                    <Link to={`/profile/${user.id}`} className="flex items-center gap-2 flex-1">
-                      <div className="relative">
-                        <Avatar>
-                          <AvatarImage src={user.avatar} />
-                          <AvatarFallback>{getInitials(user.firstName, user.lastName)}</AvatarFallback>
-                        </Avatar>
-                        <span className={`absolute -bottom-0.5 -right-0.5 ${user.isOnline ? 'online-status' : 'offline-status'}`}></span>
-                      </div>
-                      <span className="text-sm truncate">{user.firstName} {user.lastName}</span>
-                    </Link>
-                    {user.isOnline && user.isFriend && (
-                      <button className="text-liberte-primary p-1 rounded hover:bg-gray-200">
+      <div className="flex-1 overflow-y-auto p-4">
+        {loading ? (
+          <div className="flex justify-center py-4">
+            <div className="h-6 w-6 border-2 border-liberte-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredOnlineUsers.length > 0 && (
+              <div>
+                <div className="flex items-center mb-2">
+                  <Badge variant="success" className="mr-2">En ligne</Badge>
+                  <span className="text-xs text-gray-500">{filteredOnlineUsers.length} utilisateur(s)</span>
+                </div>
+                <div className="space-y-2">
+                  {filteredOnlineUsers.map((onlineUser) => (
+                    <div key={onlineUser._id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md transition-colors">
+                      <Link to={`/profile/${onlineUser._id}`} className="flex items-center flex-1">
+                        <div className="relative">
+                          <Avatar>
+                            <AvatarImage src={onlineUser.avatar} />
+                            <AvatarFallback>
+                              {getInitials(onlineUser.firstName, onlineUser.lastName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                        </div>
+                        <div className="ml-3">
+                          <p className="font-medium text-sm">
+                            {onlineUser.firstName} {onlineUser.lastName}
+                          </p>
+                        </div>
+                      </Link>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="text-gray-500 hover:text-liberte-primary"
+                        onClick={() => handleStartChat(onlineUser)}
+                      >
                         <MessageCircle size={18} />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ) : (
-              <div className="text-center p-4 text-gray-500">Aucun ami trouvé</div>
             )}
-          </ScrollArea>
-        </TabsContent>
-        
-        <TabsContent value="all" className="mt-0">
-          <ScrollArea className="h-[calc(100vh-160px)]">
-            {loading ? (
-              <div className="flex justify-center p-4">Chargement...</div>
-            ) : allUsers.length > 0 ? (
-              <div className="space-y-2">
-                {allUsers.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between p-2 rounded-md hover:bg-gray-100">
-                    <Link to={`/profile/${user.id}`} className="flex items-center gap-2 flex-1">
-                      <div className="relative">
-                        <Avatar>
-                          <AvatarImage src={user.avatar} />
-                          <AvatarFallback>{getInitials(user.firstName, user.lastName)}</AvatarFallback>
-                        </Avatar>
-                        <span className={`absolute -bottom-0.5 -right-0.5 ${user.isOnline ? 'online-status' : 'offline-status'}`}></span>
-                      </div>
-                      <span className="text-sm truncate">{user.firstName} {user.lastName}</span>
-                    </Link>
-                    {user.isOnline && user.isFriend && (
-                      <button className="text-liberte-primary p-1 rounded hover:bg-gray-200">
+            
+            {filteredOfflineUsers.length > 0 && (
+              <div>
+                <div className="flex items-center mb-2">
+                  <Badge variant="secondary" className="mr-2">Hors ligne</Badge>
+                  <span className="text-xs text-gray-500">{filteredOfflineUsers.length} utilisateur(s)</span>
+                </div>
+                <div className="space-y-2">
+                  {filteredOfflineUsers.map((offlineUser) => (
+                    <div key={offlineUser._id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md transition-colors">
+                      <Link to={`/profile/${offlineUser._id}`} className="flex items-center flex-1">
+                        <div className="relative">
+                          <Avatar>
+                            <AvatarImage src={offlineUser.avatar} />
+                            <AvatarFallback>
+                              {getInitials(offlineUser.firstName, offlineUser.lastName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="absolute bottom-0 right-0 w-3 h-3 bg-gray-400 border-2 border-white rounded-full"></span>
+                        </div>
+                        <div className="ml-3">
+                          <p className="font-medium text-sm text-gray-600">
+                            {offlineUser.firstName} {offlineUser.lastName}
+                          </p>
+                        </div>
+                      </Link>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="text-gray-400 hover:text-liberte-primary"
+                        onClick={() => handleStartChat(offlineUser)}
+                      >
                         <MessageCircle size={18} />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ) : (
-              <div className="text-center p-4 text-gray-500">Aucun utilisateur trouvé</div>
             )}
-          </ScrollArea>
-        </TabsContent>
-      </Tabs>
-    </div>
+            
+            {filteredOnlineUsers.length === 0 && filteredOfflineUsers.length === 0 && (
+              <p className="text-gray-500 text-sm text-center">
+                Aucun utilisateur disponible pour le moment
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </aside>
   );
 };
 

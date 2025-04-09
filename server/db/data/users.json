@@ -4,35 +4,119 @@
     "firstName": "jean",
     "lastName": "marc",
     "email": "jean@yahoo.fr",
-    "password": "$2b$10$cBkWoX69kuRWe6iVUVyPruPargkp0me818F5hfu5OOLnDnnb07MMq",
+    "password": "azerty123",
     "dateOfBirth": "1963-11-22",
     "gender": "male",
-    "friends": [],
+    "friends": [
+      "m8y5zanjd0bag"
+    ],
     "friendRequests": {
       "sent": [],
-      "received": []
+      "received": [
+        "m92dgs8wvlxx7"
+      ]
     },
-    "isOnline": false,
-    "lastActive": "2025-04-01T07:15:16.862Z",
+    "isOnline": true,
+    "lastActive": "2025-04-06T04:08:54.436Z",
     "createdAt": "2025-04-01T06:52:24.157Z",
-    "updatedAt": "2025-04-01T07:15:16.862Z"
+    "updatedAt": "2025-04-06T04:08:54.437Z"
   },
   {
     "_id": "m8y5zanjd0bag",
     "firstName": "mica",
     "lastName": "jean",
     "email": "jean.mika@yahoo.fr",
-    "password": "$2b$10$I1hlj0TcIuL0QtRLYe4rpuOAINq0vtIBUEYgjqd1.vLHjH0lv1pi6",
+    "password": "azerty123",
     "dateOfBirth": "1978-05-25",
     "gender": "male",
+    "friends": [
+      "m8y54vdpjtpj9"
+    ],
+    "friendRequests": {
+      "sent": [
+        "m8yc02jlh8oie"
+      ],
+      "received": []
+    },
+    "isOnline": true,
+    "lastActive": "2025-04-06T04:22:24.317Z",
+    "createdAt": "2025-04-01T07:16:03.631Z",
+    "updatedAt": "2025-04-06T04:22:24.317Z"
+  },
+  {
+    "_id": "m8yc02jlh8oie",
+    "firstName": "bekoto",
+    "lastName": "jao",
+    "email": "laura.martin@example.com",
+    "password": "$2b$10$k7FUFUeJ49iWvP418nv8jeut0lcJ7KzDnM0lHHU7yOtoqbINpocpy",
+    "dateOfBirth": "2000-11-22",
+    "gender": "female",
+    "friends": [],
+    "friendRequests": {
+      "sent": [],
+      "received": [
+        "m8y5zanjd0bag"
+      ]
+    },
+    "isOnline": false,
+    "lastActive": "2025-04-01T10:09:28.367Z",
+    "createdAt": "2025-04-01T10:04:37.473Z",
+    "updatedAt": "2025-04-05T18:18:52.467Z"
+  },
+  {
+    "_id": "m92dgs8wvlxx7",
+    "firstName": "Michel",
+    "lastName": "bota",
+    "dateOfBirth": "2000-03-15T00:00:00.000Z",
+    "gender": "male",
+    "email": "michel.bota@yahoo.fr",
+    "password": "$2b$10$mCZ8uiRBlFjXVvM.d9Ze2OG1dd89tcj7VTZqC12w9nQL2WqwSPkyG",
+    "isOnline": false,
+    "friends": [],
+    "friendRequests": {
+      "sent": [
+        "m8y54vdpjtpj9"
+      ],
+      "received": []
+    },
+    "lastActive": "2025-04-04T06:01:26.830Z",
+    "createdAt": "2025-04-04T05:56:41.601Z",
+    "updatedAt": "2025-04-04T06:01:26.831Z"
+  },
+  {
+    "_id": "m92ffeyiy8nx8",
+    "firstName": "mika",
+    "lastName": "beau",
+    "dateOfBirth": "2000-12-12T00:00:00.000Z",
+    "gender": "female",
+    "email": "beau@yahoo.fr",
+    "password": "$2b$10$PEeu85k538VlatlpRubgCuj.Zf6lgWcAxehXYdpkDfZ1L038OO4ga",
+    "isOnline": false,
     "friends": [],
     "friendRequests": {
       "sent": [],
       "received": []
     },
-    "isOnline": true,
-    "lastActive": "2025-04-01T07:16:03.631Z",
-    "createdAt": "2025-04-01T07:16:03.631Z",
-    "updatedAt": "2025-04-01T07:16:03.631Z"
+    "lastActive": "2025-04-04T06:54:18.514Z",
+    "createdAt": "2025-04-04T06:51:36.954Z",
+    "updatedAt": "2025-04-04T06:54:18.514Z"
+  },
+  {
+    "_id": "m942g0cy3db3a",
+    "firstName": "sana",
+    "lastName": "jean",
+    "dateOfBirth": "2000-12-12T00:00:00.000Z",
+    "gender": "female",
+    "email": "sana@yahoo.fr",
+    "password": "$2b$10$l15vh1cd4AUhTB1jdmUENeoKcrlDcFY3wcFTiKV0BuuYyNLZSfaP2",
+    "isOnline": false,
+    "friends": [],
+    "friendRequests": {
+      "sent": [],
+      "received": []
+    },
+    "lastActive": "2025-04-05T10:39:05.675Z",
+    "createdAt": "2025-04-05T10:23:42.034Z",
+    "updatedAt": "2025-04-05T10:39:05.676Z"
   }
 ]

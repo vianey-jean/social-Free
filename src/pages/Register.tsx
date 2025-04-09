@@ -5,9 +5,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Eye, EyeOff } from "lucide-react";
 
 const Register = () => {
   const { register, isAuthenticated, loading } = useAuth();
@@ -17,15 +24,17 @@ const Register = () => {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
-    dateOfBirth: "",
-    gender: "male",
     email: "",
     password: "",
     confirmPassword: "",
+    gender: "",
+    dateOfBirth: "",
   });
   
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   useEffect(() => {
     if (isAuthenticated) {
@@ -33,57 +42,74 @@ const Register = () => {
     }
   }, [isAuthenticated, navigate]);
   
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
+  };
+  
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
   };
   
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     
-    // Validate first name
     if (!formData.firstName.trim()) {
       newErrors.firstName = "Le prénom est requis";
     }
     
-    // Validate last name
     if (!formData.lastName.trim()) {
       newErrors.lastName = "Le nom est requis";
     }
     
-    // Validate date of birth
-    if (!formData.dateOfBirth) {
-      newErrors.dateOfBirth = "La date de naissance est requise";
-    } else {
-      // Check if user is at least 18 years old
-      const birthDate = new Date(formData.dateOfBirth);
-      const today = new Date();
-      const age = today.getFullYear() - birthDate.getFullYear();
-      const monthDiff = today.getMonth() - birthDate.getMonth();
-      
-      if (age < 18 || (age === 18 && monthDiff < 0) || 
-          (age === 18 && monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-        newErrors.dateOfBirth = "Vous devez avoir au moins 18 ans pour vous inscrire";
-      }
-    }
-    
-    // Validate email
     if (!formData.email.trim()) {
       newErrors.email = "L'adresse email est requise";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Adresse email invalide";
     }
     
-    // Validate password
     if (!formData.password) {
       newErrors.password = "Le mot de passe est requis";
     } else if (formData.password.length < 8) {
-      newErrors.password = "Le mot de passe doit comporter au moins 8 caractères";
+      newErrors.password = "Le mot de passe doit faire au moins 8 caractères";
     }
     
-    // Validate password confirmation
-    if (formData.password !== formData.confirmPassword) {
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = "Veuillez confirmer votre mot de passe";
+    } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = "Les mots de passe ne correspondent pas";
+    }
+    
+    if (!formData.gender) {
+      newErrors.gender = "Le genre est requis";
+    }
+    
+    if (!formData.dateOfBirth) {
+      newErrors.dateOfBirth = "La date de naissance est requise";
+    } else {
+      const today = new Date();
+      const birthDate = new Date(formData.dateOfBirth);
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && today.getDate() < birthDate.getDate())
+      ) {
+        age--;
+      }
+      
+      if (age < 13) {
+        newErrors.dateOfBirth = "Vous devez avoir au moins 13 ans";
+      }
     }
     
     setErrors(newErrors);
@@ -101,28 +127,39 @@ const Register = () => {
       await register({
         firstName: formData.firstName,
         lastName: formData.lastName,
-        dateOfBirth: formData.dateOfBirth,
-        gender: formData.gender,
         email: formData.email,
         password: formData.password,
+        gender: formData.gender,
+        dateOfBirth: formData.dateOfBirth,
       });
       
       toast({
         title: "Inscription réussie",
-        description: "Votre compte a été créé avec succès.",
+        description: "Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter.",
       });
       
-      navigate("/home");
-    } catch (error) {
+      navigate("/login");
+    } catch (error: any) {
       console.error("Registration error:", error);
+      
       toast({
         title: "Échec de l'inscription",
-        description: "Une erreur s'est produite lors de la création de votre compte.",
+        description:
+          error.response?.data?.message ||
+          "Une erreur s'est produite lors de l'inscription",
         variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
     }
+  };
+  
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+  
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(!showConfirmPassword);
   };
   
   if (loading) {
@@ -138,14 +175,16 @@ const Register = () => {
       <Navbar />
       
       <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-lg bg-white rounded-lg shadow p-8">
+        <div className="w-full max-w-md bg-white rounded-lg shadow p-8">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold">Créer un compte</h1>
-            <p className="text-gray-600">Rejoignez Liberté et commencez à partager</p>
+            <p className="text-gray-600">
+              Rejoignez la communauté Liberté aujourd'hui
+            </p>
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName">Prénom</Label>
                 <Input
@@ -176,46 +215,6 @@ const Register = () => {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="dateOfBirth">Date de naissance</Label>
-              <Input
-                id="dateOfBirth"
-                name="dateOfBirth"
-                type="date"
-                value={formData.dateOfBirth}
-                onChange={handleChange}
-                className={errors.dateOfBirth ? "border-liberte-error" : ""}
-              />
-              {errors.dateOfBirth && (
-                <p className="text-sm text-liberte-error">{errors.dateOfBirth}</p>
-              )}
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Genre</Label>
-              <RadioGroup
-                name="gender"
-                value={formData.gender}
-                onValueChange={(value) => 
-                  setFormData((prev) => ({ ...prev, gender: value }))
-                }
-                className="flex gap-4"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="male" id="male" />
-                  <Label htmlFor="male">Homme</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="female" id="female" />
-                  <Label htmlFor="female">Femme</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="other" id="other" />
-                  <Label htmlFor="other">Autre</Label>
-                </div>
-              </RadioGroup>
-            </div>
-            
-            <div className="space-y-2">
               <Label htmlFor="email">Adresse email</Label>
               <Input
                 id="email"
@@ -232,14 +231,23 @@ const Register = () => {
             
             <div className="space-y-2">
               <Label htmlFor="password">Mot de passe</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                className={errors.password ? "border-liberte-error" : ""}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  value={formData.password}
+                  onChange={handleChange}
+                  className={errors.password ? "border-liberte-error" : ""}
+                />
+                <button 
+                  type="button"
+                  onClick={togglePasswordVisibility}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
               {errors.password && (
                 <p className="text-sm text-liberte-error">{errors.password}</p>
               )}
@@ -247,17 +255,66 @@ const Register = () => {
             
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className={errors.confirmPassword ? "border-liberte-error" : ""}
-              />
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className={errors.confirmPassword ? "border-liberte-error" : ""}
+                />
+                <button 
+                  type="button"
+                  onClick={toggleConfirmPasswordVisibility}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
               {errors.confirmPassword && (
                 <p className="text-sm text-liberte-error">{errors.confirmPassword}</p>
               )}
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="dateOfBirth">Date de naissance</Label>
+                <Input
+                  id="dateOfBirth"
+                  name="dateOfBirth"
+                  type="date"
+                  value={formData.dateOfBirth}
+                  onChange={handleChange}
+                  className={errors.dateOfBirth ? "border-liberte-error" : ""}
+                />
+                {errors.dateOfBirth && (
+                  <p className="text-sm text-liberte-error">{errors.dateOfBirth}</p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="gender">Genre</Label>
+                <Select
+                  value={formData.gender}
+                  onValueChange={(value) => handleSelectChange("gender", value)}
+                >
+                  <SelectTrigger
+                    id="gender"
+                    className={errors.gender ? "border-liberte-error" : ""}
+                  >
+                    <SelectValue placeholder="Sélectionner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Homme</SelectItem>
+                    <SelectItem value="female">Femme</SelectItem>
+                    <SelectItem value="other">Autre</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.gender && (
+                  <p className="text-sm text-liberte-error">{errors.gender}</p>
+                )}
+              </div>
             </div>
             
             <Button
@@ -265,7 +322,7 @@ const Register = () => {
               className="w-full"
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Création du compte..." : "Créer un compte"}
+              {isSubmitting ? "Inscription en cours..." : "S'inscrire"}
             </Button>
           </form>
           

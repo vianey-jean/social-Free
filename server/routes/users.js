@@ -1,25 +1,36 @@
-
 const express = require('express');
 const { users } = require('../db');
 const auth = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const router = express.Router();
 
-// Obtenir les utilisateurs en ligne
+// Obtenir les utilisateurs en ligne et hors ligne
 router.get('/online', auth, async (req, res) => {
   try {
     const allUsers = await users.getAll();
-    const onlineUsers = allUsers.filter(user => user.isOnline)
-      .map(user => ({
+    
+    // Update current user's online status
+    await users.update(req.user._id, { isOnline: true, lastActive: new Date() });
+    
+    // Consider users active if they were active in the last 5 minutes
+    const activeTimeThreshold = 5 * 60 * 1000; // 5 minutes in milliseconds
+    
+    const usersWithStatus = allUsers.map(user => {
+      const isRecentlyActive = user.lastActive && 
+        (new Date() - new Date(user.lastActive) < activeTimeThreshold);
+      
+      return {
         _id: user._id,
         firstName: user.firstName,
         lastName: user.lastName,
         avatar: user.avatar,
-        isOnline: user.isOnline
-      }));
+        isOnline: user.isOnline || isRecentlyActive
+      };
+    });
     
-    res.json(onlineUsers);
+    res.json(usersWithStatus);
   } catch (error) {
+    console.error("Error fetching users:", error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -67,11 +78,11 @@ router.get('/:id', auth, async (req, res) => {
     // Vérifier le statut d'amitié
     let friendshipStatus = 'none';
     
-    if (req.user.friends.includes(user._id)) {
+    if (req.user.friends && req.user.friends.includes(user._id)) {
       friendshipStatus = 'friends';
-    } else if (req.user.friendRequests.sent.includes(user._id)) {
+    } else if (req.user.friendRequests && req.user.friendRequests.sent && req.user.friendRequests.sent.includes(user._id)) {
       friendshipStatus = 'pending_sent';
-    } else if (req.user.friendRequests.received.includes(user._id)) {
+    } else if (req.user.friendRequests && req.user.friendRequests.received && req.user.friendRequests.received.includes(user._id)) {
       friendshipStatus = 'pending_received';
     }
     
@@ -119,6 +130,25 @@ router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
     res.json({
       message: 'Avatar téléchargé avec succès',
       avatar: updatedUser.avatar
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// Set user status (online/offline)
+router.post('/status', auth, async (req, res) => {
+  try {
+    const { isOnline } = req.body;
+    
+    const updatedUser = await users.update(req.user._id, { 
+      isOnline: !!isOnline, 
+      lastActive: new Date() 
+    });
+    
+    res.json({
+      message: `Statut mis à jour: ${isOnline ? 'en ligne' : 'hors ligne'}`,
+      isOnline: updatedUser.isOnline
     });
   } catch (error) {
     res.status(400).json({ message: error.message });

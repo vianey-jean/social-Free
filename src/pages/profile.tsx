@@ -5,9 +5,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import PostFeed from "@/components/PostFeed";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import axios from "axios";
 
-const API_URL = "http://localhost:3001/api";
+const API_URL = window.location.hostname === 'localhost' 
+  ? "http://localhost:3001/api" 
+  : "https://liberte-backend.herokuapp.com/api";
 
 interface UserProfile {
   _id: string;
@@ -23,10 +26,12 @@ const Profile = () => {
   const { id } = useParams<{ id: string }>();
   const { user, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   
   const [profileUser, setProfileUser] = useState<UserProfile | null>(null);
   const [friendshipStatus, setFriendshipStatus] = useState<FriendshipStatus>("none");
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshPosts, setRefreshPosts] = useState(0);
   
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -38,15 +43,46 @@ const Profile = () => {
     const fetchUserProfile = async () => {
       try {
         if (!id) return;
+        console.log("Fetching user profile for:", id);
         
         const response = await axios.get(`${API_URL}/users/${id}`, {
           withCredentials: true
         });
         
+        console.log("User profile data:", response.data);
         setProfileUser(response.data.user);
         setFriendshipStatus(response.data.friendshipStatus);
       } catch (error) {
         console.error("Failed to fetch user profile:", error);
+        
+        // Pour les besoins de la démo, créons un profil fictif
+        if (id) {
+          // Si l'ID est celui de l'utilisateur connecté
+          if (user && id === user.id) {
+            setProfileUser({
+              _id: user.id,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              avatar: user.avatar,
+              isOnline: true
+            });
+          } else {
+            // Sinon, créer un utilisateur fictif
+            setProfileUser({
+              _id: id,
+              firstName: ["John", "Jane", "Alice", "Bob", "Charlie"][Math.floor(Math.random() * 5)],
+              lastName: ["Doe", "Smith", "Johnson", "Brown", "Wilson"][Math.floor(Math.random() * 5)],
+              isOnline: Math.random() > 0.5
+            });
+            setFriendshipStatus(["none", "friends", "pending_sent", "pending_received"][Math.floor(Math.random() * 4)] as FriendshipStatus);
+          }
+        }
+        
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger le profil de l'utilisateur. Affichage des données de démonstration.",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }
@@ -55,7 +91,7 @@ const Profile = () => {
     if (isAuthenticated) {
       fetchUserProfile();
     }
-  }, [id, isAuthenticated]);
+  }, [id, isAuthenticated, user, toast]);
   
   const handleFriendRequest = async () => {
     try {
@@ -64,8 +100,17 @@ const Profile = () => {
       });
       
       setFriendshipStatus("pending_sent");
+      toast({
+        title: "Demande envoyée",
+        description: "Votre demande d'ami a été envoyée avec succès.",
+      });
     } catch (error) {
       console.error("Failed to send friend request:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'envoyer la demande d'ami.",
+        variant: "destructive",
+      });
     }
   };
   
@@ -76,8 +121,17 @@ const Profile = () => {
       });
       
       setFriendshipStatus("friends");
+      toast({
+        title: "Demande acceptée",
+        description: "Vous êtes maintenant amis.",
+      });
     } catch (error) {
       console.error("Failed to accept friend request:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'accepter la demande d'ami.",
+        variant: "destructive",
+      });
     }
   };
   
@@ -88,8 +142,17 @@ const Profile = () => {
       });
       
       setFriendshipStatus("none");
+      toast({
+        title: "Demande rejetée",
+        description: "La demande d'ami a été rejetée.",
+      });
     } catch (error) {
       console.error("Failed to reject friend request:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de rejeter la demande d'ami.",
+        variant: "destructive",
+      });
     }
   };
   
@@ -100,8 +163,17 @@ const Profile = () => {
       });
       
       setFriendshipStatus("none");
+      toast({
+        title: "Ami retiré",
+        description: "Cette personne a été retirée de vos amis.",
+      });
     } catch (error) {
       console.error("Failed to remove friend:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de retirer cet ami.",
+        variant: "destructive",
+      });
     }
   };
   
@@ -203,7 +275,7 @@ const Profile = () => {
       <div className="flex-1 p-6">
         <div className="max-w-2xl mx-auto">
           <h2 className="text-xl font-bold mb-4">Publications</h2>
-          <PostFeed userId={profileUser._id} />
+          <PostFeed userId={profileUser._id} refreshTrigger={refreshPosts} />
         </div>
       </div>
     </div>

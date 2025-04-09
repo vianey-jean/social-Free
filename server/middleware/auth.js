@@ -4,36 +4,44 @@ const { users } = require('../db');
 
 const auth = async (req, res, next) => {
   try {
-    // Récupérer le token depuis le cookie ou l'en-tête Authorization
-    const token = req.cookies.jwt || req.header('Authorization')?.replace('Bearer ', '');
+    // Get token from cookie, Authorization header, or request body
+    let token = req.cookies.jwt || req.header('Authorization')?.replace('Bearer ', '');
+    
+    // Check for token in request body (useful for testing)
+    if (!token && req.body && req.body.token) {
+      token = req.body.token;
+    }
     
     if (!token) {
-      console.log('Aucun token d\'authentification fourni');
+      console.log('No authentication token provided');
       return res.status(401).json({ message: 'Authentification requise' });
     }
     
     try {
-      // Vérifier le token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-fallback-secret-key-for-development');
+      // Verify token
+      const secretKey = process.env.JWT_SECRET || 'your-fallback-secret-key-for-development';
       
-      // Trouver l'utilisateur
+      const decoded = jwt.verify(token, secretKey);
+      console.log('Decoded token:', decoded);
+      
+      // Find user
       const user = await users.getById(decoded.id);
       
       if (!user) {
-        console.log('Utilisateur non trouvé avec l\'id:', decoded.id);
+        console.log('User not found with id:', decoded.id);
         return res.status(401).json({ message: 'Utilisateur non trouvé' });
       }
       
-      // Définir l'utilisateur et le token sur l'objet de requête
+      // Set user and token on request object
       req.user = user;
       req.token = token;
       next();
     } catch (tokenError) {
-      console.error('Erreur de vérification du token:', tokenError.message);
+      console.error('Token verification error:', tokenError.message);
       return res.status(401).json({ message: 'Token invalide ou expiré' });
     }
   } catch (error) {
-    console.error('Erreur du middleware d\'authentification:', error.message);
+    console.error('Authentication middleware error:', error.message);
     res.status(500).json({ message: 'Erreur d\'authentification' });
   }
 };

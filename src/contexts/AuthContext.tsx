@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
 
@@ -56,7 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           timeout: 10000 // 10 second timeout
         });
         
-        if (response.data.user) {
+        if (response.data && response.data.user) {
           console.log("User authenticated:", response.data.user);
           setUser({
             id: response.data.user._id,
@@ -67,11 +66,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
         }
       } catch (error: any) {
-        // User is not authenticated
-        console.error("Authentication check failed:", error.message);
+        // User is not authenticated - this is expected if not logged in
+        console.log("Authentication check failed:", error.message);
         if (error.response) {
-          console.error("Server response:", error.response.data);
-          console.error("Status code:", error.response.status);
+          console.log("Server response:", error.response.data);
+          console.log("Status code:", error.response.status);
         }
         setUser(null);
       } finally {
@@ -86,28 +85,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       console.log("Attempting login at:", `${API_URL}/auth/login`);
+      console.log("Login data:", { email, password });
+      
+      // Make sure email and password are strings
+      const emailStr = String(email).trim();
+      const passwordStr = String(password);
+      
+      if (!emailStr || !passwordStr) {
+        throw new Error("Email et mot de passe requis");
+      }
       
       const response = await axios.post(
         `${API_URL}/auth/login`,
-        { email, password },
+        { email: emailStr, password: passwordStr },
         { 
           withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json'
+          },
           timeout: 10000 // 10 second timeout
         }
       );
       
       console.log("Login successful:", response.data);
-      setUser({
-        id: response.data.user._id,
-        firstName: response.data.user.firstName,
-        lastName: response.data.user.lastName,
-        email: response.data.user.email,
-        avatar: response.data.user.avatar
-      });
+      
+      // Set user data after successful login
+      if (response.data.user) {
+        setUser({
+          id: response.data.user._id,
+          firstName: response.data.user.firstName,
+          lastName: response.data.user.lastName,
+          email: response.data.user.email,
+          avatar: response.data.user.avatar
+        });
+      } else {
+        throw new Error("No user data returned from server");
+      }
     } catch (error: any) {
-      console.error("Login failed:", error.message);
+      console.log("Login failed:", error.message);
       if (error.response) {
-        console.error("Server response:", error.response.data);
+        console.log("Server response:", error.response.data);
+        console.log("Status code:", error.response.status);
       }
       throw error;
     } finally {
@@ -125,22 +143,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         userData,
         { 
           withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json'
+          },
           timeout: 15000 // 15 second timeout for registration (which may take longer)
         }
       );
       
       console.log("Registration successful:", response.data);
-      setUser({
-        id: response.data.user._id,
-        firstName: response.data.user.firstName,
-        lastName: response.data.user.lastName,
-        email: response.data.user.email,
-        avatar: response.data.user.avatar
-      });
+      // Do not set user here to force redirect to login page after successful registration
     } catch (error: any) {
-      console.error("Registration failed:", error.message);
+      console.log("Registration failed:", error.message);
       if (error.response) {
-        console.error("Server response:", error.response.data);
+        console.log("Server response:", error.response.data);
       }
       throw error;
     } finally {
@@ -155,6 +170,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         {}, 
         { 
           withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json'
+          },
           timeout: 5000 // 5 second timeout
         }
       );

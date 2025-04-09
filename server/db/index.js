@@ -1,13 +1,14 @@
-
 const fs = require('fs').promises;
 const path = require('path');
-const bcrypt = require('bcrypt');
 
 // Chemins vers les fichiers de base de données
 const dbDir = path.join(__dirname, 'data');
 const usersPath = path.join(dbDir, 'users.json');
 const postsPath = path.join(dbDir, 'posts.json');
 const chatsPath = path.join(dbDir, 'chats.json');
+const popularPostsPath = path.join(dbDir, 'popularPosts.json');
+const recentPostsPath = path.join(dbDir, 'recentPosts.json');
+const userPostsPath = path.join(dbDir, 'userPosts.json');
 
 // Initialiser la base de données
 async function initDB() {
@@ -24,7 +25,10 @@ async function initDB() {
     const files = [
       { path: usersPath, defaultContent: '[]' },
       { path: postsPath, defaultContent: '[]' },
-      { path: chatsPath, defaultContent: '[]' }
+      { path: chatsPath, defaultContent: '[]' },
+      { path: popularPostsPath, defaultContent: '[]' },
+      { path: recentPostsPath, defaultContent: '[]' },
+      { path: userPostsPath, defaultContent: '[]' }
     ];
 
     for (const file of files) {
@@ -93,14 +97,10 @@ const users = {
       throw new Error('Cet utilisateur existe déjà');
     }
     
-    // Hasher le mot de passe
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(userData.password, salt);
-    
+    // No password hashing
     const newUser = {
       _id: generateId(),
       ...userData,
-      password: hashedPassword,
       friends: [],
       friendRequests: { sent: [], received: [] },
       isOnline: true,
@@ -123,13 +123,7 @@ const users = {
     
     if (index === -1) return null;
     
-    // Si le mot de passe est mis à jour, le hasher
-    if (updates.password) {
-      const salt = await bcrypt.genSalt(10);
-      updates.password = await bcrypt.hash(updates.password, salt);
-    }
-    
-    // Mettre à jour l'utilisateur
+    // Mettre à jour l'utilisateur sans hacher le mot de passe
     users[index] = {
       ...users[index],
       ...updates,
@@ -156,7 +150,8 @@ const users = {
     const user = await this.getById(id);
     if (!user) return false;
     
-    return bcrypt.compare(password, user.password);
+    // Simple string comparison 
+    return password === user.password;
   }
 };
 
@@ -174,6 +169,18 @@ const posts = {
   async getByUser(userId) {
     const posts = await this.getAll();
     return posts.filter(post => post.user === userId);
+  },
+
+  async getPopular() {
+    const allPosts = await this.getAll();
+    // Sort by likes count (descending)
+    return [...allPosts].sort((a, b) => b.likes.length - a.likes.length);
+  },
+
+  async getRecent() {
+    const allPosts = await this.getAll();
+    // Sort by date (newest first)
+    return [...allPosts].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   },
 
   async getFeed(userId, friendIds) {
@@ -198,6 +205,10 @@ const posts = {
     
     posts.push(newPost);
     await writeData(postsPath, posts);
+    
+    // Update categorized posts
+    await this._updateCategorizedPosts();
+    
     return newPost;
   },
 
@@ -214,6 +225,10 @@ const posts = {
     };
     
     await writeData(postsPath, posts);
+    
+    // Update categorized posts
+    await this._updateCategorizedPosts();
+    
     return posts[index];
   },
 
@@ -223,7 +238,14 @@ const posts = {
     
     if (filtered.length === posts.length) return false;
     
-    return await writeData(postsPath, filtered);
+    const success = await writeData(postsPath, filtered);
+    
+    // Update categorized posts
+    if (success) {
+      await this._updateCategorizedPosts();
+    }
+    
+    return success;
   },
 
   async addComment(postId, comment) {
@@ -243,6 +265,10 @@ const posts = {
     posts[index].updatedAt = new Date();
     
     await writeData(postsPath, posts);
+    
+    // Update categorized posts
+    await this._updateCategorizedPosts();
+    
     return newComment;
   },
 
@@ -265,10 +291,57 @@ const posts = {
     posts[index].updatedAt = new Date();
     
     await writeData(postsPath, posts);
+    
+    // Update categorized posts
+    await this._updateCategorizedPosts();
+    
     return {
       likes: posts[index].likes.length,
       liked: likeIndex === -1
     };
+  },
+  
+  // Private method to update categorized posts
+  async _updateCategorizedPosts() {
+    try {
+      const allPosts = await this.getAll();
+      
+      // Create popular posts
+      const popularPosts = [...allPosts].sort((a, b) => b.likes.length - a.likes.length);
+      await writeData(popularPostsPath, popularPosts);
+      
+      // Create recent posts
+      const recentPosts = [...allPosts].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      await writeData(recentPostsPath, recentPosts);
+      
+      // Create user posts map
+      const userPosts = {};
+      allPosts.forEach(post => {
+        if (!userPosts[post.user]) {
+          userPosts[post.user] = {
+            public: [],
+            private: []
+          };
+        }
+        
+        if (post.isPrivate) {
+          userPosts[post.user].private.push(post);
+        } else {
+          userPosts[post.user].public.push(post);
+        }
+      });
+      
+      // Sort posts by date for each user
+      for (const userId in userPosts) {
+        userPosts[userId].public.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        userPosts[userId].private.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      }
+      
+      await writeData(userPostsPath, userPosts);
+      
+    } catch (error) {
+      console.error("Error updating categorized posts:", error);
+    }
   }
 };
 
